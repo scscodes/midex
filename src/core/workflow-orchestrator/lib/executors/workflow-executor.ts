@@ -1,0 +1,197 @@
+/**
+ * Workflow Layer - Orchestrates step execution
+ * Workflows can be invoked by orchestrator or agents
+ */
+
+import type { Workflow, StepDefinition } from '../../../content-registry';
+import type { WorkflowInput, WorkflowOutput, StepInput, StepOutput } from '../../schemas';
+import { StepInputSchema, StepOutputSchema } from '../../schemas';
+import { StepExecutor } from './step-executor';
+import { telemetry } from '../telemetry';
+import { WorkflowError } from '../../errors';
+import { shouldEscalate } from '../retry';
+import { OrchestratorConfig } from '../config';
+import { executeWithBoundary } from '../execution-boundary';
+
+export class WorkflowExecutor {
+  constructor(
+    private readonly stepExecutor: StepExecutor,
+    private readonly maxParallelSteps: number = OrchestratorConfig.maxParallelSteps
+  ) {}
+
+  /**
+   * Execute a workflow with its defined steps
+   */
+  async execute(
+    workflow: Workflow,
+    input: WorkflowInput,
+    context: { workflowId: string }
+  ): Promise<WorkflowOutput> {
+    telemetry.workflowStarted(context.workflowId, workflow.name);
+
+    const startTime = Date.now();
+    const stepOutputs: StepOutput[] = [];
+    const allArtifacts: WorkflowOutput['artifacts'] = [];
+    const allDecisions: WorkflowOutput['decisions'] = [];
+    const allFindings: WorkflowOutput['findings'] = [];
+    const allBlockers: string[] = [];
+    const allReferences: string[] = [];
+
+    try {
+      // Group steps by execution mode
+      const parallelSteps = workflow.steps.filter(s => s.mode === 'parallel');
+      const sequentialSteps = workflow.steps.filter(s => s.mode !== 'parallel');
+
+      // Execute parallel steps with concurrency control
+      if (parallelSteps.length > 0) {
+        const parallelOutputs = await this.executeParallelSteps(parallelSteps, input, context);
+        stepOutputs.push(...parallelOutputs);
+
+        for (const output of parallelOutputs) {
+          allArtifacts.push(...output.artifacts);
+          allFindings.push(...output.findings);
+          allBlockers.push(...output.blockers);
+          allReferences.push(...output.references);
+        }
+      }
+
+      // Execute sequential steps
+      for (const stepDef of sequentialSteps) {
+        const stepId = `${context.workflowId}-step-${stepDef.name}`;
+        const stepInputRaw: StepInput = {
+          step: stepDef.name,
+          task: `Execute ${stepDef.name} using ${stepDef.agent}`,
+          constraints: [],
+          references: input.triggers?.keywords || [],
+          expected_output: 'StepOutput',
+        };
+
+        const stepOutput = await this.executeStep(stepDef, stepInputRaw, context, stepId);
+        stepOutputs.push(stepOutput);
+
+        // Aggregate outputs
+        allArtifacts.push(...stepOutput.artifacts);
+        allFindings.push(...stepOutput.findings);
+        allBlockers.push(...stepOutput.blockers);
+        allReferences.push(...stepOutput.references);
+
+        // Check for escalation conditions
+        const criticalFindings = stepOutput.findings.filter(f => f.severity === 'critical').length;
+        const highFindings = stepOutput.findings.filter(f => f.severity === 'high').length;
+
+        if (shouldEscalate(criticalFindings, highFindings, stepOutput.blockers.length)) {
+          throw new WorkflowError(
+            'Workflow escalated due to critical findings or blockers',
+            'ESCALATION_REQUIRED',
+            context.workflowId
+          );
+        }
+
+        // Conditional mode: stop if blockers found
+        if (stepDef.mode === 'conditional' && stepOutput.blockers.length > 0) {
+          break;
+        }
+      }
+
+      // Generate workflow output
+      const totalConfidence = stepOutputs.length > 0
+        ? stepOutputs.reduce((sum, s) => sum + s.confidence, 0) / stepOutputs.length
+        : 0;
+
+      const output: WorkflowOutput = {
+        summary: `Workflow ${workflow.name} completed: ${stepOutputs.length} step(s) executed`,
+        workflow: {
+          name: workflow.name,
+          reason: input.reason,
+        },
+        steps: stepOutputs,
+        artifacts: allArtifacts,
+        decisions: allDecisions,
+        findings: allFindings,
+        next_steps: [],
+        blockers: allBlockers,
+        references: [...new Set(allReferences)],
+        confidence: totalConfidence,
+      };
+
+      const duration = Date.now() - startTime;
+      telemetry.workflowCompleted(context.workflowId, duration);
+
+      return output;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      telemetry.workflowFailed(context.workflowId, errorMsg);
+
+      throw new WorkflowError(
+        `Workflow ${workflow.name} failed: ${errorMsg}`,
+        'WORKFLOW_EXECUTION_FAILED',
+        context.workflowId
+      );
+    }
+  }
+
+  /**
+   * Execute a single step with boundary protection
+   */
+  private async executeStep(
+    stepDef: StepDefinition,
+    stepInput: StepInput,
+    context: { workflowId: string },
+    stepId: string
+  ): Promise<StepOutput> {
+    return executeWithBoundary(
+      (validatedInput) => this.stepExecutor.execute(stepDef, validatedInput, {
+        workflowId: context.workflowId,
+        stepId,
+      }),
+      {
+        input: stepInput,
+        inputSchema: StepInputSchema,
+        outputSchema: StepOutputSchema,
+        timeoutMs: OrchestratorConfig.stepTimeoutMs,
+        retryPolicy: stepDef.retry,
+        context: {
+          layer: 'step',
+          workflowId: context.workflowId,
+          stepId,
+          name: stepDef.name,
+        },
+      }
+    );
+  }
+
+  /**
+   * Execute parallel steps with concurrency control
+   */
+  private async executeParallelSteps(
+    steps: StepDefinition[],
+    input: WorkflowInput,
+    context: { workflowId: string }
+  ): Promise<StepOutput[]> {
+    const results: StepOutput[] = [];
+
+    // Execute in batches based on maxParallelSteps
+    for (let i = 0; i < steps.length; i += this.maxParallelSteps) {
+      const batch = steps.slice(i, i + this.maxParallelSteps);
+      const batchPromises = batch.map(async (stepDef) => {
+        const stepId = `${context.workflowId}-step-${stepDef.name}`;
+        const stepInputRaw: StepInput = {
+          step: stepDef.name,
+          task: `Execute ${stepDef.name} using ${stepDef.agent}`,
+          constraints: [],
+          references: input.triggers?.keywords || [],
+          expected_output: 'StepOutput',
+        };
+
+        return this.executeStep(stepDef, stepInputRaw, context, stepId);
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+    }
+
+    return results;
+  }
+}
+

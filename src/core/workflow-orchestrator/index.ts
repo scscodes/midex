@@ -1,0 +1,179 @@
+/**
+ * Workflow Lifecycle Orchestrator
+ *
+ * Top-level orchestrator managing workflow execution lifecycle.
+ * Implements layered architecture: Orchestrator → Workflows → Steps → Agent Tasks
+ */
+
+import type { WorkflowInput, WorkflowOutput } from './schemas';
+import { WorkflowInputSchema, WorkflowOutputSchema } from './schemas';
+import type { Workflow, StepDefinition } from '../content-registry';
+
+// Generate unique IDs
+function generateId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+import { WorkflowExecutor } from './lib/executors/workflow-executor';
+import { StepExecutor } from './lib/executors/step-executor';
+import { AgentTaskExecutor } from './lib/executors/task-executor';
+import { StateManager } from './lib/state';
+import { telemetry } from './lib/telemetry';
+import { WorkflowError, ValidationError } from './errors';
+import { OrchestratorConfig } from './lib/config';
+import { executeWithBoundary } from './lib/execution-boundary';
+
+export interface OrchestrationOptions {
+  workflowId?: string;
+  enableTelemetry?: boolean;
+  maxParallelSteps?: number;
+  timeoutMs?: number;
+}
+
+export interface OrchestrationResult {
+  workflowId: string;
+  output: WorkflowOutput;
+  duration: number;
+  state: 'completed' | 'failed' | 'escalated';
+}
+
+export class WorkflowOrchestrator {
+  private stateManager: StateManager;
+  private workflowExecutor: WorkflowExecutor;
+  private stepExecutor: StepExecutor;
+  private agentTaskExecutor: AgentTaskExecutor;
+  private options: OrchestrationOptions;
+
+  constructor(options: OrchestrationOptions = {}) {
+    this.options = options;
+    this.stateManager = new StateManager();
+    this.agentTaskExecutor = new AgentTaskExecutor();
+    this.stepExecutor = new StepExecutor(this.agentTaskExecutor);
+    this.workflowExecutor = new WorkflowExecutor(
+      this.stepExecutor,
+      options.maxParallelSteps || OrchestratorConfig.maxParallelSteps
+    );
+  }
+
+  /**
+   * Execute a workflow from input
+   * Loads workflow definition from ContentRegistry
+   */
+  async execute(
+    input: WorkflowInput,
+    options: OrchestrationOptions = {}
+  ): Promise<OrchestrationResult> {
+    // Generate workflow ID
+    const workflowId = options.workflowId || generateId('workflow');
+
+    // Load workflow definition
+    const workflow = await this.loadWorkflowDefinition(input.name);
+    if (!workflow) {
+      throw new ValidationError(`Workflow ${input.name} not found`);
+    }
+
+    // Initialize state
+    const state = this.stateManager.createWorkflow(workflowId, workflow.name);
+    this.stateManager.updateWorkflowState(workflowId, 'running');
+
+    try {
+      // Execute workflow with unified boundary (validation, timeout)
+      const validatedOutput = await executeWithBoundary(
+        (validatedInput) => this.workflowExecutor.execute(workflow, validatedInput, { workflowId }),
+        {
+          input,
+          inputSchema: WorkflowInputSchema,
+          outputSchema: WorkflowOutputSchema,
+          timeoutMs: options.timeoutMs || OrchestratorConfig.workflowTimeoutMs,
+          context: {
+            layer: 'workflow',
+            workflowId,
+            name: workflow.name,
+          },
+        }
+      );
+
+      // Update state
+      this.stateManager.updateWorkflowState(workflowId, 'completed', validatedOutput);
+
+      const duration = (state.completedAt || Date.now()) - state.startedAt;
+
+      return {
+        workflowId,
+        output: validatedOutput,
+        duration,
+        state: 'completed',
+      };
+    } catch (error) {
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      const isEscalation = errorObj instanceof WorkflowError && errorObj.code === 'ESCALATION_REQUIRED';
+
+      this.stateManager.updateWorkflowState(
+        workflowId,
+        isEscalation ? 'escalated' : 'failed',
+        undefined,
+        errorObj
+      );
+
+      const duration = Date.now() - state.startedAt;
+
+      return {
+        workflowId,
+        output: this.createErrorOutput(input, errorObj),
+        duration,
+        state: isEscalation ? 'escalated' : 'failed',
+      };
+    }
+  }
+
+  /**
+   * Get workflow execution state
+   */
+  getState(workflowId: string) {
+    return this.stateManager.getWorkflow(workflowId);
+  }
+
+
+  private async loadWorkflowDefinition(name: string): Promise<Workflow | null> {
+    try {
+      // Load workflow from ContentRegistry
+      const { ContentRegistry } = await import('../content-registry/index.js');
+      const registry = ContentRegistry.init();
+
+      const workflow = await registry.getWorkflow(name);
+      return workflow;
+    } catch {
+      return null;
+    }
+  }
+
+  private createErrorOutput(input: WorkflowInput, error: Error): WorkflowOutput {
+    return {
+      summary: `Workflow ${input.name} failed: ${error.message}`,
+      workflow: {
+        name: input.name,
+        reason: input.reason,
+      },
+      steps: [],
+      artifacts: [],
+      decisions: [],
+      findings: [
+        {
+          severity: 'critical',
+          description: error.message,
+          recommendation: 'Review error and retry or escalate',
+        },
+      ],
+      next_steps: [],
+      blockers: [error.message],
+      references: [],
+      confidence: 0,
+    };
+  }
+}
+
+// Re-export public types and schemas
+export * from './errors';
+export * from './schemas';
+export * from './lib/execution-state';
+export type { WorkflowInput, WorkflowOutput, StepInput, StepOutput, AgentInput, AgentOutput } from './schemas';
+export type { Workflow, StepDefinition, ExecutionMode, RetryPolicy, AgentTaskDefinition } from '../content-registry';
