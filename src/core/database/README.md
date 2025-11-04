@@ -10,6 +10,10 @@ Shared SQLite database infrastructure with automatic migrations, prepared statem
 - **Statement Caching**: Prepared statements reused for performance
 - **Transactions**: Simple transaction helpers
 - **Health Checks**: Connection validation
+- **Normalized Tags**: Relational tag storage for efficient querying
+- **Full-Text Search**: FTS5-powered search across all content
+- **Audit Logging**: Complete change history for all content
+- **CHECK Constraints**: Database-level validation matching Zod schemas
 
 ## Quick Start
 
@@ -226,19 +230,164 @@ const stmt2 = db.prepare('SELECT * FROM agents WHERE name = ?');
 db.close();
 ```
 
+## Advanced Features
+
+### Normalized Tags
+
+Tags are stored in relational tables for efficient querying and indexing:
+
+```typescript
+import { DatabaseBackend } from '@/core/content-registry/lib/storage/database-backend';
+
+const backend = new DatabaseBackend('./data/app.db');
+
+// Query by single tag (uses normalized tables)
+const securityAgents = await backend.getAgentsByTag('security');
+const reviewWorkflows = await backend.getWorkflowsByTag('review');
+const styleRules = await backend.getRulesByTag('style');
+
+// Benefits:
+// - Indexed lookups (fast)
+// - Foreign key integrity
+// - No JSON parsing overhead
+// - Tag-based filtering without full table scans
+```
+
+**Schema:**
+- `agent_tags(agent_id, tag)` - Many-to-many agent→tags
+- `rule_tags(rule_id, tag)` - Many-to-many rule→tags
+- `workflow_tags(workflow_id, tag)` - Many-to-many workflow→tags
+
+**Migration:** `002_normalize_tags.ts`
+
+### Full-Text Search
+
+SQLite FTS5 provides fast full-text search with ranking:
+
+```typescript
+import { DatabaseBackend } from '@/core/content-registry/lib/storage/database-backend';
+
+const backend = new DatabaseBackend('./data/app.db');
+
+// Search agents
+const agents = await backend.searchAgents('supervisor');
+
+// Search with boolean operators
+const workflows = await backend.searchWorkflows('security AND review');
+
+// Phrase matching
+const rules = await backend.searchRules('"code quality"');
+
+// Prefix matching
+const results = await backend.searchAgents('super*');
+```
+
+**FTS5 Query Syntax:**
+- `term1 AND term2` - Both terms must match
+- `term1 OR term2` - Either term matches
+- `term1 NOT term2` - First term but not second
+- `"exact phrase"` - Phrase match
+- `prefix*` - Prefix match
+
+**Indexed Fields:**
+- Agents: `name`, `description`, `content`, `tags`
+- Rules: `name`, `description`, `content`, `tags`
+- Workflows: `name`, `description`, `content`, `tags`
+
+**Migration:** `004_add_full_text_search.ts`
+
+### Audit Logging
+
+All changes to agents, rules, and workflows are automatically logged:
+
+```typescript
+import { DatabaseBackend } from '@/core/content-registry/lib/storage/database-backend';
+
+const backend = new DatabaseBackend('./data/app.db');
+
+// Get all changes for a table
+const agentHistory = await backend.getAuditLog('agents');
+
+// Get changes for a specific row
+const supervisorHistory = await backend.getAuditLog('agents', 1);
+
+// Each log entry contains:
+// - id: Audit log entry ID
+// - operation: 'INSERT' | 'UPDATE' | 'DELETE'
+// - rowId: ID of the affected row
+// - oldValues: Previous values (JSON)
+// - newValues: New values (JSON)
+// - changedAt: Timestamp
+```
+
+**Logged Operations:**
+- `INSERT` - New content created (captures new values)
+- `UPDATE` - Content modified (captures old and new values)
+- `DELETE` - Content removed (captures old values)
+
+**Use Cases:**
+- Debugging: Track down when/how data changed
+- Compliance: Audit trail for regulatory requirements
+- Rollback: Restore previous versions
+- Forensics: Investigate data issues
+
+**Migration:** `005_add_audit_logging.ts`
+
+### CHECK Constraints
+
+Database-level validation mirrors Zod schemas:
+
+```typescript
+// These constraints are automatically enforced:
+
+// Agents
+// - name: 1-100 chars
+// - description: max 500 chars
+// - version: max 20 chars
+// - file_hash: max 64 chars (SHA-256)
+// - tags: valid JSON
+
+// Rules
+// - name: 1-100 chars
+// - description: max 500 chars
+// - always_apply: 0 or 1
+// - globs: valid JSON
+// - tags: valid JSON
+
+// Workflows
+// - name: 1-200 chars
+// - description: max 2000 chars
+// - complexity_hint: 'simple' | 'moderate' | 'high'
+// - tags: valid JSON
+// - triggers: valid JSON
+
+// Normalized tags
+// - tag: 1-50 chars
+```
+
+**Benefits:**
+- Double validation layer (Zod + database)
+- Prevents invalid data even if application validation is bypassed
+- Self-documenting schema
+- Consistency across all access methods
+
+**Migration:** `003_add_check_constraints.ts`
+
 ## Structure
 
 ```
 database/
-├── index.ts              # AppDatabase class
-├── migrations/
-│   ├── types.ts          # Migration interfaces
-│   ├── runner.ts         # Migration execution engine
-│   ├── discovery.ts      # Auto-discovery of migration files
-│   ├── index.ts          # Public API
-│   └── 001_*.ts          # Migration files (auto-discovered)
-└── schema/
-    └── content.ts        # Reference schema (deprecated, use migrations)
+├── index.ts                              # AppDatabase class
+└── migrations/
+    ├── types.ts                          # Migration interfaces
+    ├── runner.ts                         # Migration execution engine
+    ├── discovery.ts                      # Auto-discovery of migration files
+    ├── index.ts                          # Public API
+    ├── 001_initial_content_schema.ts     # Base tables for agents, rules, workflows
+    ├── 002_normalize_tags.ts             # Normalized tag tables with indexes
+    ├── 003_add_check_constraints.ts      # Zod-matching CHECK constraints
+    ├── 004_add_full_text_search.ts       # FTS5 virtual tables and triggers
+    └── 005_add_audit_logging.ts          # Audit log table and triggers
 ```
 
 ## Adding New Tables
