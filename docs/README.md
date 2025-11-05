@@ -49,15 +49,21 @@ Orchestrates the complete lifecycle of multi-agent workflows.
 
 ## Database Infrastructure
 
-Shared SQLite database infrastructure.
+Shared SQLite database infrastructure with advanced features.
 
-**Location:** `src/core/database/`  
+**Location:** `src/core/database/`
 **Documentation:** [`../src/core/database/README.md`](../src/core/database/README.md)
 
 **Features:**
-- Connection management
-- Schema definitions
-- Shared across modules
+- Auto-migrations with version tracking
+- Connection management and statement caching
+- WAL mode for better concurrency
+- Normalized tag storage for efficient querying
+- Full-text search (FTS5) across all content
+- Comprehensive audit logging
+- CHECK constraints matching Zod schemas
+- Foreign key integrity enforcement
+- Transaction support
 
 ## Schema Validation
 
@@ -125,5 +131,5 @@ src/core/
 │   │   └── config.ts    # Configuration
 │   └── schemas.ts       # Contract validation schemas
 └── database/             # Database infrastructure
-    └── schema/           # Schema definitions
+    └── migrations/       # Database migration files
 ```
