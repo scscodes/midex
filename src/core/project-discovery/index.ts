@@ -174,5 +174,6 @@ export class ProjectDiscovery {
 // Re-export public types and schemas
 export * from './errors';
 export * from './schemas';
+export * from './project-association';
 export type { DiscoveryMethod, DiscoveryOptions, DiscoveryResult, ProjectInfo } from './schemas';
 
