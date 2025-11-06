@@ -1,7 +1,7 @@
 /**
- * Workflow execution policies
- * Defines retry, parallelism, and timeout behavior for workflows
- * Policies are selected based on workflow complexity level
+ * Execution policies
+ * Defines retry, parallelism, and timeout behavior for execution contexts
+ * Policies are selected based on complexity level
  */
 
 export interface ExecutionPolicy {
@@ -15,8 +15,8 @@ export interface ExecutionPolicy {
     failFast: boolean;
   };
   timeout: {
-    perStepMs: number;
-    totalWorkflowMs: number;
+    perStepMs: number; // Timeout per individual step/operation
+    totalWorkflowMs: number; // Total timeout for entire execution context
   };
 }
 

@@ -2,7 +2,7 @@
 
 Multi-agent (persona) workflow orchestration platform.
 
-Modular, extensible, global-first approach. Customize for a single developer, or adapt for team use.
+Modular, extensible, global-first approach. Customize for a single developer, or adapt as a baseline for team use.
 
 
 ## Use Case: Lite | Standard

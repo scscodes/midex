@@ -8,6 +8,19 @@
 
 ## Core Systems
 
+### Core Config
+
+[`src/core/config/README.md`](../src/core/config/README.md)
+
+**Current**:
+- Execution policies: retry, parallelism, timeout by complexity (simple/moderate/high)
+- Global standard for execution contexts (workflows, agents, operations)
+- Complexity-based selection: simple operations get minimal retry/timeout, complex get more
+
+**Future**:
+- Policy overrides and runtime configuration
+- Additional policy types as needed (e.g., resource limits, rate limiting)
+
 ### Content Registry
 
 [`src/core/content-registry/README.md`](../src/core/content-registry/README.md)
