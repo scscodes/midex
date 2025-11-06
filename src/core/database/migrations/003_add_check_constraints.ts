@@ -6,7 +6,7 @@ import type { Migration } from './types';
  * Ensures data integrity at the database level by enforcing:
  * - String length limits (name, description, paths, etc.)
  * - Boolean constraints (always_apply must be 0 or 1)
- * - Enum constraints (complexity_hint)
+ * - Enum constraints (complexity)
  * - Non-empty required fields
  *
  * These constraints mirror the Zod schemas in:
@@ -107,7 +107,7 @@ const migration: Migration = {
         content TEXT NOT NULL,
         tags TEXT CHECK(tags IS NULL OR json_valid(tags)),
         triggers TEXT CHECK(triggers IS NULL OR json_valid(triggers)),
-        complexity_hint TEXT CHECK(complexity_hint IS NULL OR complexity_hint IN ('simple', 'moderate', 'high')),
+        complexity TEXT CHECK(complexity IS NULL OR complexity IN ('simple', 'moderate', 'high')),
         path TEXT CHECK(path IS NULL OR length(path) <= 500),
         file_hash TEXT CHECK(file_hash IS NULL OR length(file_hash) <= 64),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -117,8 +117,8 @@ const migration: Migration = {
 
     // Copy data from old workflows table
     db.exec(`
-      INSERT INTO workflows_new (id, name, description, content, tags, triggers, complexity_hint, path, file_hash, created_at, updated_at)
-      SELECT id, name, description, content, tags, triggers, complexity_hint, path, file_hash, created_at, updated_at
+      INSERT INTO workflows_new (id, name, description, content, tags, triggers, complexity, path, file_hash, created_at, updated_at)
+      SELECT id, name, description, content, tags, triggers, complexity, path, file_hash, created_at, updated_at
       FROM workflows;
     `);
 
@@ -273,7 +273,7 @@ const migration: Migration = {
         content TEXT NOT NULL,
         tags TEXT,
         triggers TEXT,
-        complexity_hint TEXT,
+        complexity TEXT,
         path TEXT,
         file_hash TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

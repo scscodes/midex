@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import { resolve } from 'path';
+import { createRequire } from 'module';
 import type { Database as DB, Statement } from 'better-sqlite3';
 
 export interface DatabaseOptions {
@@ -74,11 +75,11 @@ export class AppDatabase {
    */
   private applyMigrations(): void {
     try {
-      // Use require to avoid async in constructor
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { MigrationRunner } = require('./migrations/runner');
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { discoverMigrationsSync } = require('./migrations/discovery');
+      // Use createRequire for ESM compatibility
+      const require = createRequire(import.meta.url);
+
+      const { MigrationRunner } = require('./migrations/runner.js');
+      const { discoverMigrationsSync } = require('./migrations/discovery.js');
 
       const runner = new MigrationRunner(this.db);
       const migrations = discoverMigrationsSync();

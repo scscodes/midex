@@ -17,8 +17,8 @@ export async function discoverMigrations(): Promise<Migration[]> {
 
   const migrationFiles = files
     .filter((file) => {
-      // Match pattern: NNN_name.ts or NNN_name.js
-      return /^\d{3}_.*\.(ts|js)$/.test(file);
+      // Match pattern: NNN_name.js (only .js files, not .d.ts)
+      return /^\d{3}_.*\.js$/.test(file) && !file.endsWith('.d.ts');
     })
     .sort(); // Lexicographic sort works because of 3-digit padding
 
@@ -64,8 +64,8 @@ export function discoverMigrationsSync(): Migration[] {
 
   const migrationFiles = files
     .filter((file) => {
-      // Match pattern: NNN_name.ts or NNN_name.js
-      return /^\d{3}_.*\.(ts|js)$/.test(file);
+      // Match pattern: NNN_name.js (only .js files, not .d.ts)
+      return /^\d{3}_.*\.js$/.test(file) && !file.endsWith('.d.ts');
     })
     .sort();
 

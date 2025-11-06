@@ -1,7 +1,7 @@
 import type { Migration } from './types';
 
 /**
- * Add workflow phases column and rename complexity_hint to complexity
+ * Add workflow phases column
  * Transforms workflow schema to support phase-based execution model
  */
 const migration: Migration = {
@@ -11,30 +11,25 @@ const migration: Migration = {
 
   up: (db) => {
     // Add phases column to workflows table
+    // Since migration 001 already creates 'complexity' column, we just need to add phases
     db.exec(`
-      ALTER TABLE workflows ADD COLUMN phases TEXT DEFAULT '[]';
-    `);
-
-    // Rename complexity_hint to complexity
-    // SQLite doesn't support column rename, so we need to recreate the table
-    db.exec(`
-      -- Create new table with correct schema
+      -- Create new table with phases column
       CREATE TABLE workflows_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL,
-        description TEXT NOT NULL,
+        name TEXT UNIQUE NOT NULL CHECK(length(name) > 0 AND length(name) <= 200),
+        description TEXT NOT NULL CHECK(length(description) <= 2000),
         content TEXT NOT NULL,
-        tags TEXT, -- JSON array
-        triggers TEXT, -- JSON object
-        complexity TEXT DEFAULT 'moderate', -- simple, moderate, high
+        tags TEXT CHECK(tags IS NULL OR json_valid(tags)),
+        triggers TEXT CHECK(triggers IS NULL OR json_valid(triggers)),
+        complexity TEXT CHECK(complexity IS NULL OR complexity IN ('simple', 'moderate', 'high')),
         phases TEXT DEFAULT '[]', -- JSON array of WorkflowPhase objects
-        path TEXT,
-        file_hash TEXT,
+        path TEXT CHECK(path IS NULL OR length(path) <= 500),
+        file_hash TEXT CHECK(file_hash IS NULL OR length(file_hash) <= 64),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
-      -- Copy data from old table, mapping complexity_hint to complexity
+      -- Copy data from old table
       INSERT INTO workflows_new (id, name, description, content, tags, triggers, complexity, phases, path, file_hash, created_at, updated_at)
       SELECT
         id,
@@ -43,7 +38,7 @@ const migration: Migration = {
         content,
         tags,
         triggers,
-        COALESCE(complexity_hint, 'moderate') as complexity,
+        COALESCE(complexity, 'moderate') as complexity,
         '[]' as phases,
         path,
         file_hash,
@@ -71,25 +66,25 @@ const migration: Migration = {
   },
 
   down: (db) => {
-    // Reverse migration: rename complexity back to complexity_hint, remove phases
+    // Reverse migration: remove phases column
     db.exec(`
-      -- Create old table structure
+      -- Create table without phases column
       CREATE TABLE workflows_old (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL,
-        description TEXT NOT NULL,
+        name TEXT UNIQUE NOT NULL CHECK(length(name) > 0 AND length(name) <= 200),
+        description TEXT NOT NULL CHECK(length(description) <= 2000),
         content TEXT NOT NULL,
-        tags TEXT, -- JSON array
-        triggers TEXT, -- JSON object
-        complexity_hint TEXT,
-        path TEXT,
-        file_hash TEXT,
+        tags TEXT CHECK(tags IS NULL OR json_valid(tags)),
+        triggers TEXT CHECK(triggers IS NULL OR json_valid(triggers)),
+        complexity TEXT CHECK(complexity IS NULL OR complexity IN ('simple', 'moderate', 'high')),
+        path TEXT CHECK(path IS NULL OR length(path) <= 500),
+        file_hash TEXT CHECK(file_hash IS NULL OR length(file_hash) <= 64),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
-      -- Copy data back, mapping complexity to complexity_hint
-      INSERT INTO workflows_old (id, name, description, content, tags, triggers, complexity_hint, path, file_hash, created_at, updated_at)
+      -- Copy data back without phases column
+      INSERT INTO workflows_old (id, name, description, content, tags, triggers, complexity, path, file_hash, created_at, updated_at)
       SELECT
         id,
         name,
@@ -97,7 +92,7 @@ const migration: Migration = {
         content,
         tags,
         triggers,
-        complexity as complexity_hint,
+        complexity,
         path,
         file_hash,
         created_at,
