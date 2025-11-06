@@ -1,6 +1,7 @@
 ---
 name: debugger
 description: "Diagnoses issues and identifies root causes with evidence-backed fixes."
+tags: [debugging]
 ---
 
 # DEBUGGER AGENT

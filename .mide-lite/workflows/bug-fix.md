@@ -2,17 +2,28 @@
 name: bug-fix
 description: Systematic bug fixing workflow with diagnosis and verification
 tags: [workflows, bugfix, debugging, maintenance]
+complexity: moderate
+phases:
+  - phase: diagnose
+    agent: debugger
+    description: Root cause analysis through debugging and analysis
+  - phase: fix
+    agent: implementer
+    description: Implement fix with regression tests
+    dependsOn: [diagnose]
+  - phase: verify
+    agent: reviewer
+    description: Verify fix resolves issue without side effects
+    dependsOn: [fix]
 ---
 
 # Bug Fix Workflow
 
 Systematic approach to debugging and fixing issues with proper diagnosis and verification.
 
-Use contracts: `.mide-lite/contracts/StepOutput.schema.json` for steps; `.mide-lite/contracts/WorkflowOutput.schema.json` for final aggregation. Supervisor orchestrates; this file defines phases only.
-
 ## Overview
 
-This workflow ensures bugs are properly understood and fixed:
+This workflow ensures bugs are properly understood and fixed through three sequential phases:
 
 1. **Debugger** - Root cause analysis
 2. **Implementer** - Fix with regression tests
@@ -25,10 +36,9 @@ This workflow ensures bugs are properly understood and fixed:
 - Resolving errors or crashes
 - Quick to moderate complexity issues
 
-## Phases
+## Expected Outcomes
 
-1. diagnose (debugger) → StepOutputContract
-2. fix (implementer) → StepOutputContract
-3. verify (reviewer) → StepOutputContract
-
-Final: WorkflowOutputContract aggregating all step outputs.
+- Root cause identified and documented
+- Bug fix implemented with regression tests
+- Verification that fix resolves issue without side effects
+- All tests passing

@@ -1,6 +1,7 @@
 ---
 name: reviewer
 description: "Performs code reviews for quality, security, and rules compliance."
+tags: [review, quality]
 ---
 
 # REVIEWER AGENT

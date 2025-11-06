@@ -2,13 +2,36 @@
 name: parallel-maintenance-audit
 description: Multiple agents audit different aspects of codebase maintenance simultaneously
 tags: [workflows, maintenance, audit, parallel, quality]
+complexity: moderate
+phases:
+  - phase: code-hygiene
+    agent: maintainer
+    description: File organization, structure, and dead code identification
+  - phase: dependency-audit
+    agent: maintainer
+    description: Dependency versions, security vulnerabilities, and license compliance
+  - phase: test-maintenance
+    agent: implementer
+    description: Test coverage analysis and quality assessment
+  - phase: documentation-maintenance
+    agent: documentation-specialist
+    description: Documentation currency and completeness review
+  - phase: security-maintenance
+    agent: security-specialist
+    description: Security practice compliance and vulnerability assessment
+  - phase: performance-maintenance
+    agent: performance-engineer
+    description: Performance pattern analysis and optimization opportunities
+  - phase: maintenance-synthesis
+    agent: supervisor
+    description: Aggregate maintenance findings and create cleanup roadmap
+    dependsOn: [code-hygiene, dependency-audit, test-maintenance, documentation-maintenance, security-maintenance, performance-maintenance]
+    allowParallel: false
 ---
 
 # Parallel Maintenance Audit
 
 Comprehensive maintenance audit with multiple agents examining different aspects of codebase health simultaneously.
-
-Use contracts: `.mide-lite/contracts/StepOutput.schema.json` (per step) and `.mide-lite/contracts/WorkflowOutput.schema.json` (final aggregation). Supervisor orchestrates.
 
 ## Overview
 
@@ -67,17 +90,3 @@ This workflow leverages multiple specialized agents to audit different aspects o
 - **Cleanup Recommendations**: Actionable improvement suggestions
 - **Maintenance Roadmap**: Phased maintenance implementation plan
 - **Health Metrics**: Quantified codebase health assessment
-
-## Phases
-
-- code-hygiene (maintainer) → StepOutputContract
-- dependency-audit (maintainer) → StepOutputContract
-- test-maintenance (implementer) → StepOutputContract
-- documentation-maintenance (documentation-specialist) → StepOutputContract
-- security-maintenance (security-specialist) → StepOutputContract
-- performance-maintenance (performance-engineer) → StepOutputContract
-- maintenance-synthesis (supervisor) → StepOutputContract
-
-Final: WorkflowOutputContract aggregating all step outputs.
-
- 

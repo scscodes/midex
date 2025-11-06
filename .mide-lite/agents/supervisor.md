@@ -1,6 +1,7 @@
 ---
 name: supervisor
 description: "Orchestrates multi-agent workflows and enforces shared standards and contracts."
+tags: [orchestration]
 ---
 
 # SUPERVISOR AGENT

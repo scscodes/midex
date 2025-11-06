@@ -1,6 +1,7 @@
 ---
 name: architect
 description: "Designs architecture and makes technical decisions with clear trade-offs."
+tags: [design]
 ---
 
 # ARCHITECT AGENT

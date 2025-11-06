@@ -1,6 +1,7 @@
 ---
 name: devops-engineer
 description: "Handles infrastructure, CI/CD, automation, monitoring, scaling, and operational reliability."
+tags: [infrastructure]
 ---
 
 # DEVOPS ENGINEER AGENT

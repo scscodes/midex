@@ -2,13 +2,33 @@
 name: security-threat-assessment
 description: Multi-agent security analysis with parallel threat modeling
 tags: [workflows, security, threat-modeling, parallel]
+complexity: high
+phases:
+  - phase: external-threats
+    agent: security-specialist
+    description: Attack surface analysis and external vulnerability scanning
+  - phase: internal-threats
+    agent: security-specialist
+    description: Insider threat assessment and access control review
+  - phase: code-vulnerabilities
+    agent: debugger
+    description: Static code analysis and common vulnerability patterns
+  - phase: infrastructure-security
+    agent: devops-engineer
+    description: Server hardening and network security configuration review
+  - phase: data-protection
+    agent: security-specialist
+    description: Data classification and privacy compliance assessment
+  - phase: threat-synthesis
+    agent: supervisor
+    description: Aggregate security findings and create mitigation roadmap
+    dependsOn: [external-threats, internal-threats, code-vulnerabilities, infrastructure-security, data-protection]
+    allowParallel: false
 ---
 
 # Security Threat Assessment
 
 Comprehensive multi-agent security analysis with parallel threat modeling across all system layers.
-
-Use contracts: `.mide-lite/contracts/StepOutput.schema.json` (per step) and `.mide-lite/contracts/WorkflowOutput.schema.json` (final aggregation). Supervisor orchestrates.
 
 ## Overview
 
@@ -61,16 +81,3 @@ This workflow conducts a thorough security assessment by analyzing threats from 
 - **Risk Assessment**: Risk levels and impact analysis
 - **Mitigation Roadmap**: Actionable security improvements
 - **Compliance Status**: Regulatory compliance assessment
-
-## Phases
-
-- external-threats (security-specialist) → StepOutputContract
-- internal-threats (security-specialist) → StepOutputContract
-- code-vulnerabilities (debugger) → StepOutputContract
-- infrastructure-security (devops-engineer) → StepOutputContract
-- data-protection (security-specialist) → StepOutputContract
-- threat-synthesis (supervisor) → StepOutputContract
-
-Final: WorkflowOutputContract aggregating all step outputs.
-
- 

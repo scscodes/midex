@@ -52,7 +52,7 @@ The codebase is organized into four major core systems under `src/core/`:
 1. **Content Registry** (`src/core/content-registry/`)
    - Unified content management for agents, rules, and workflows
    - **Dual-mode operation**: filesystem (lite) or database (standard)
-   - Module-per-type architecture: `types/{agents,rules,workflows}/`
+   - Module-per-type architecture: `{agents,rules,workflows}/` at content-registry root
    - Bidirectional sync between filesystem and database with conflict resolution
    - All content is markdown with frontmatter, validated via Zod schemas
 
@@ -75,7 +75,7 @@ The codebase is organized into four major core systems under `src/core/`:
 
 4. **Database Infrastructure** (`src/core/database/`)
    - Shared SQLite connection management via `better-sqlite3`
-   - Schema definitions in `schema/` subdirectory
+   - Auto-migration system in `migrations/` subdirectory
    - Used by Content Registry database backend and other modules
 
 ### Content Organization (`.mide-lite/`)
@@ -121,10 +121,10 @@ Content structure requires frontmatter:
 ### Adding New Content Types
 
 Follow the module-per-type pattern:
-1. Add Zod schema in `src/core/content-registry/schemas.ts`
-2. Create type module at `types/{typename}/` with `factory.ts`, `sync.ts`, `index.ts`
-3. Update backends to add new methods
-4. Add database schema if using database mode
+1. Create type module at `{typename}/` with `schema.ts`, `factory.ts`, `sync.ts`, `index.ts`
+2. Define Zod schemas in `{typename}/schema.ts` (frontmatter and full schema)
+3. Update `ContentBackend` interface and both implementations (filesystem + database)
+4. Add database migration in `src/core/database/migrations/` if using database mode
 
 ### Testing Strategy
 

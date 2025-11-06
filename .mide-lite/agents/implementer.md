@@ -1,6 +1,7 @@
 ---
 name: implementer
 description: "Implements designs into production-quality code with tests and proper error handling."
+tags: [development]
 ---
 
 # IMPLEMENTER AGENT

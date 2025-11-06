@@ -1,6 +1,7 @@
 ---
 name: documentation-specialist
 description: "Creates and maintains technical documentation, user guides, and knowledge base content."
+tags: [documentation]
 ---
 
 # DOCUMENTATION SPECIALIST AGENT

@@ -6,7 +6,8 @@
   "main": "dist/index.js",
   "scripts": {
     "setup": "tsx scripts/setup.ts",
-    "build": "tsc",
+    "clean": "tsx scripts/cleanup.ts",
+    "build": "npm run clean && tsc",
     "dev": "tsc --watch",
     "test": "vitest",
     "test:run": "vitest run",

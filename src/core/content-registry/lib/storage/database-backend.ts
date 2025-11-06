@@ -35,7 +35,8 @@ interface DbWorkflow {
   content: string;
   tags: string; // JSON array
   triggers: string; // JSON object
-  complexity_hint: string | null;
+  complexity: string; // simple, moderate, high
+  phases: string; // JSON array of WorkflowPhase objects
   path: string | null;
   file_hash: string | null;
   updated_at: string;
@@ -76,8 +77,8 @@ function dbWorkflowToWorkflow(row: DbWorkflow): Workflow {
     content: row.content,
     tags: row.tags ? JSON.parse(row.tags) : [],
     triggers: row.triggers ? JSON.parse(row.triggers) : undefined,
-    complexityHint: row.complexity_hint as 'simple' | 'moderate' | 'high' | undefined,
-    steps: [], // Steps parsed from content in future implementation
+    complexity: row.complexity as 'simple' | 'moderate' | 'high',
+    phases: row.phases ? JSON.parse(row.phases) : [],
     path: row.path || `workflows/${row.name}.md`,
     fileHash: row.file_hash || undefined,
   };
@@ -284,19 +285,21 @@ export class DatabaseBackend implements ContentBackend {
     const fileHash = computeContentHash(workflow.content + workflow.description);
     const tagsJson = JSON.stringify(workflow.tags || []);
     const triggersJson = workflow.triggers ? JSON.stringify(workflow.triggers) : null;
+    const phasesJson = JSON.stringify(workflow.phases || []);
     const now = updatedAt ? new Date(updatedAt).toISOString() : new Date().toISOString();
 
     // Use transaction to update both main table and normalized tags
     this.db.transaction((db) => {
       const stmt = db.prepare(`
-        INSERT INTO workflows (name, description, content, tags, triggers, complexity_hint, path, file_hash, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO workflows (name, description, content, tags, triggers, complexity, phases, path, file_hash, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(name) DO UPDATE SET
           description = excluded.description,
           content = excluded.content,
           tags = excluded.tags,
           triggers = excluded.triggers,
-          complexity_hint = excluded.complexity_hint,
+          complexity = excluded.complexity,
+          phases = excluded.phases,
           path = excluded.path,
           file_hash = excluded.file_hash,
           updated_at = excluded.updated_at
@@ -308,7 +311,8 @@ export class DatabaseBackend implements ContentBackend {
         workflow.content,
         tagsJson,
         triggersJson,
-        workflow.complexityHint || null,
+        workflow.complexity,
+        phasesJson,
         workflow.path,
         fileHash,
         now

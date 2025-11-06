@@ -1,6 +1,7 @@
 ---
 name: performance-engineer
 description: "Optimizes performance through profiling, bottleneck analysis, and scalable design."
+tags: [performance]
 ---
 
 # PERFORMANCE ENGINEER AGENT

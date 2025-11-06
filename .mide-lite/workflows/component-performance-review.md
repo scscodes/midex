@@ -2,13 +2,30 @@
 name: component-performance-review
 description: Parallel performance analysis across multiple system components
 tags: [workflows, performance, analysis, parallel]
+complexity: moderate
+phases:
+  - phase: database-performance
+    agent: performance-engineer
+    description: Query execution times and index effectiveness analysis
+  - phase: api-performance
+    agent: performance-engineer
+    description: Response time analysis and throughput measurement
+  - phase: frontend-performance
+    agent: performance-engineer
+    description: Page load times and bundle size analysis
+  - phase: infrastructure-performance
+    agent: devops-engineer
+    description: Server resource utilization and scaling bottlenecks
+  - phase: performance-synthesis
+    agent: supervisor
+    description: Aggregate performance metrics and create optimization roadmap
+    dependsOn: [database-performance, api-performance, frontend-performance, infrastructure-performance]
+    allowParallel: false
 ---
 
 # Component Performance Review
 
 Parallel performance analysis across multiple system components to identify optimization opportunities.
-
-Use contracts: `.mide-lite/contracts/StepOutput.schema.json` (per step) and `.mide-lite/contracts/WorkflowOutput.schema.json` (final aggregation). Supervisor orchestrates.
 
 ## Overview
 
@@ -54,15 +71,3 @@ This workflow analyzes performance across different system layers simultaneously
 - **Bottleneck Identification**: Prioritized list of performance issues
 - **Optimization Roadmap**: Actionable recommendations with impact estimates
 - **Performance Budget**: Target metrics for future development
-
-## Phases
-
-- database-performance (performance-engineer) → StepOutputContract
-- api-performance (performance-engineer) → StepOutputContract
-- frontend-performance (performance-engineer) → StepOutputContract
-- infrastructure-performance (devops-engineer) → StepOutputContract
-- performance-synthesis (supervisor) → StepOutputContract
-
-Final: WorkflowOutputContract aggregating all step outputs.
-
- 

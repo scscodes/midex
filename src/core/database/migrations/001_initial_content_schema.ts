@@ -52,7 +52,8 @@ const migration: Migration = {
         content TEXT NOT NULL,
         tags TEXT, -- JSON array
         triggers TEXT, -- JSON object
-        complexity_hint TEXT,
+        complexity TEXT DEFAULT 'moderate', -- simple, moderate, high
+        phases TEXT, -- JSON array of WorkflowPhase objects
         path TEXT,
         file_hash TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

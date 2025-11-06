@@ -2,13 +2,33 @@
 name: parallel-code-review
 description: Multiple agents review code from different perspectives simultaneously
 tags: [workflows, code-review, quality, parallel, security]
+complexity: high
+phases:
+  - phase: quality-review
+    agent: reviewer
+    description: Code standards compliance and best practices review
+  - phase: security-review
+    agent: security-specialist
+    description: Vulnerability assessment and security validation
+  - phase: performance-review
+    agent: performance-engineer
+    description: Algorithmic efficiency and resource utilization analysis
+  - phase: maintainability-review
+    agent: maintainer
+    description: Code organization and technical debt assessment
+  - phase: architecture-review
+    agent: architect
+    description: Design pattern compliance and system integration review
+  - phase: review-synthesis
+    agent: supervisor
+    description: Aggregate findings and create unified action plan
+    dependsOn: [quality-review, security-review, performance-review, maintainability-review, architecture-review]
+    allowParallel: false
 ---
 
 # Parallel Code Review
 
 Comprehensive code review with multiple agents examining code from different perspectives simultaneously.
-
-Use contracts: `.mide-lite/contracts/StepOutput.schema.json` (per step) and `.mide-lite/contracts/WorkflowOutput.schema.json` (final aggregation). Supervisor orchestrates.
 
 ## Overview
 
@@ -61,16 +81,3 @@ This workflow leverages multiple specialized agents to review code from differen
 - **Diverse Perspectives**: Multiple expert viewpoints
 - **Unified Action Plan**: Coordinated improvement strategy
 - **Quality Metrics**: Quantified code quality assessment
-
-## Phases
-
-- quality-review (reviewer) → StepOutputContract
-- security-review (security-specialist) → StepOutputContract
-- performance-review (performance-engineer) → StepOutputContract
-- maintainability-review (maintainer) → StepOutputContract
-- architecture-review (architect) → StepOutputContract
-- review-synthesis (supervisor) → StepOutputContract
-
-Final: WorkflowOutputContract aggregating all step outputs.
-
- 

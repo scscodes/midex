@@ -1,6 +1,7 @@
 ---
 name: security-specialist
 description: "Performs security analysis, threat modeling, and vulnerability assessment."
+tags: [security]
 ---
 
 # SECURITY SPECIALIST AGENT

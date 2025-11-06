@@ -1,6 +1,7 @@
 ---
 name: maintainer
 description: "Maintains codebase hygiene and standards compliance across architecture, imports, contracts, and tests."
+tags: [maintenance]
 ---
 
 # MAINTAINER AGENT

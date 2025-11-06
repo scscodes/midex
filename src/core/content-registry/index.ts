@@ -21,7 +21,7 @@ export interface ContentRegistryOptions {
 export interface WorkflowCriteria {
   tags?: string[];
   keywords?: string[];
-  complexityHint?: 'simple' | 'moderate' | 'high';
+  complexity?: 'simple' | 'moderate' | 'high';
 }
 
 /**
@@ -104,8 +104,8 @@ export class ContentRegistry {
         const body = `${w.name} ${w.description} ${w.content}`.toLowerCase();
         if (!criteria.keywords.some(k => body.includes(k.toLowerCase()))) return false;
       }
-      if (criteria.complexityHint) {
-        if (w.complexityHint !== criteria.complexityHint) return false;
+      if (criteria.complexity) {
+        if (w.complexity !== criteria.complexity) return false;
       }
       return true;
     }));

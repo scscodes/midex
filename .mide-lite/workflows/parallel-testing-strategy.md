@@ -2,13 +2,33 @@
 name: parallel-testing-strategy
 description: Multiple agents develop comprehensive testing strategy from different perspectives
 tags: [workflows, testing, strategy, parallel, quality]
+complexity: moderate
+phases:
+  - phase: unit-testing
+    agent: implementer
+    description: Component-level testing and testable code design
+  - phase: integration-testing
+    agent: architect
+    description: System integration points and API testing strategies
+  - phase: security-testing
+    agent: security-specialist
+    description: Vulnerability testing and security compliance
+  - phase: performance-testing
+    agent: performance-engineer
+    description: Load testing and performance benchmarks
+  - phase: user-testing
+    agent: documentation-specialist
+    description: User acceptance and end-to-end testing
+  - phase: testing-synthesis
+    agent: supervisor
+    description: Aggregate testing strategies and create implementation plan
+    dependsOn: [unit-testing, integration-testing, security-testing, performance-testing, user-testing]
+    allowParallel: false
 ---
 
 # Parallel Testing Strategy
 
 Comprehensive testing strategy development with multiple agents working on different testing aspects simultaneously.
-
-Use contracts: `.mide-lite/contracts/StepOutput.schema.json` (per step) and `.mide-lite/contracts/WorkflowOutput.schema.json` (final aggregation). Supervisor orchestrates.
 
 ## Overview
 
@@ -61,16 +81,3 @@ This workflow leverages multiple specialized agents to develop a comprehensive t
 - **Testing Roadmap**: Phased testing implementation plan
 - **Quality Metrics**: Testing success criteria defined
 - **Automation Strategy**: Test automation recommendations
-
-## Phases
-
-- unit-testing (implementer) → StepOutputContract
-- integration-testing (architect) → StepOutputContract
-- security-testing (security-specialist) → StepOutputContract
-- performance-testing (performance-engineer) → StepOutputContract
-- user-testing (documentation-specialist) → StepOutputContract
-- testing-synthesis (supervisor) → StepOutputContract
-
-Final: WorkflowOutputContract aggregating all step outputs.
-
- 

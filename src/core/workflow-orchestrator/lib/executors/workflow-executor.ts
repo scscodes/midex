@@ -3,7 +3,8 @@
  * Workflows can be invoked by orchestrator or agents
  */
 
-import type { Workflow, StepDefinition } from '../../../content-registry';
+import type { ExecutableWorkflow } from '../../compiler';
+import type { StepDefinition } from '../../../content-registry/workflows/execution-schema';
 import type { WorkflowInput, WorkflowOutput, StepInput, StepOutput } from '../../schemas';
 import { StepInputSchema, StepOutputSchema } from '../../schemas';
 import { StepExecutor } from './step-executor';
@@ -21,9 +22,11 @@ export class WorkflowExecutor {
 
   /**
    * Execute a workflow with its defined steps
+   *
+   * Note: Workflow templates must be compiled into ExecutableWorkflow before execution
    */
   async execute(
-    workflow: Workflow,
+    workflow: ExecutableWorkflow,
     input: WorkflowInput,
     context: { workflowId: string }
   ): Promise<WorkflowOutput> {

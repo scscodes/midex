@@ -2,13 +2,33 @@
 name: parallel-documentation-review
 description: Multiple agents review and update different types of documentation in parallel
 tags: [workflows, documentation, review, parallel, maintenance]
+complexity: moderate
+phases:
+  - phase: api-documentation
+    agent: documentation-specialist
+    description: OpenAPI specifications and API endpoint documentation review
+  - phase: user-documentation
+    agent: documentation-specialist
+    description: README files, guides, and user manuals review
+  - phase: architecture-documentation
+    agent: architect
+    description: System design documents and architecture decision records
+  - phase: deployment-documentation
+    agent: devops-engineer
+    description: Deployment guides and infrastructure documentation
+  - phase: security-documentation
+    agent: security-specialist
+    description: Security policies and compliance documentation
+  - phase: documentation-synthesis
+    agent: supervisor
+    description: Aggregate documentation review findings and create improvement plan
+    dependsOn: [api-documentation, user-documentation, architecture-documentation, deployment-documentation, security-documentation]
+    allowParallel: false
 ---
 
 # Parallel Documentation Review
 
 Comprehensive documentation review with multiple agents working on different documentation types simultaneously.
-
-Use contracts: `.mide-lite/contracts/StepOutput.schema.json` (per step) and `.mide-lite/contracts/WorkflowOutput.schema.json` (final aggregation). Supervisor orchestrates.
 
 ## Overview
 
@@ -61,16 +81,3 @@ This workflow leverages multiple specialized agents to review and update differe
 - **Gap Analysis**: Identify missing documentation
 - **Quality Improvement**: Enhanced documentation quality
 - **Unified Plan**: Coordinated documentation strategy
-
-## Phases
-
-- api-documentation (documentation-specialist) → StepOutputContract
-- user-documentation (documentation-specialist) → StepOutputContract
-- architecture-documentation (architect) → StepOutputContract
-- deployment-documentation (devops-engineer) → StepOutputContract
-- security-documentation (security-specialist) → StepOutputContract
-- documentation-synthesis (supervisor) → StepOutputContract
-
-Final: WorkflowOutputContract aggregating all step outputs.
-
- 

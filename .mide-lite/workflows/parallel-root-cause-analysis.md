@@ -2,13 +2,30 @@
 name: parallel-root-cause-analysis
 description: Multiple agents analyze different aspects of the same issue in parallel
 tags: [workflows, debugging, analysis, parallel]
+complexity: moderate
+phases:
+  - phase: code-analysis
+    agent: debugger
+    description: Stack trace analysis and logic error identification
+  - phase: performance-analysis
+    agent: performance-engineer
+    description: Bottleneck identification and resource utilization analysis
+  - phase: security-analysis
+    agent: security-specialist
+    description: Vulnerability assessment and attack vector analysis
+  - phase: architecture-analysis
+    agent: architect
+    description: Design pattern violations and component interaction issues
+  - phase: correlation-analysis
+    agent: supervisor
+    description: Correlate findings and identify true root cause
+    dependsOn: [code-analysis, performance-analysis, security-analysis, architecture-analysis]
+    allowParallel: false
 ---
 
 # Parallel Root Cause Analysis
 
 Multi-agent approach to complex issue diagnosis with parallel analysis and correlation.
-
-Use contracts: `.mide-lite/contracts/StepOutput.schema.json` (per step) and `.mide-lite/contracts/WorkflowOutput.schema.json` (final aggregation). Supervisor orchestrates.
 
 ## Overview
 
@@ -54,15 +71,3 @@ This workflow leverages multiple specialized agents to analyze the same issue fr
 - **Correlated Findings**: Cross-referenced analysis results
 - **Confidence Scoring**: Prioritized issues with confidence levels
 - **Actionable Insights**: Clear next steps for resolution
-
-## Phases
-
-- code-analysis (debugger) → StepOutputContract
-- performance-analysis (performance-engineer) → StepOutputContract
-- security-analysis (security-specialist) → StepOutputContract
-- architecture-analysis (architect) → StepOutputContract
-- correlation-analysis (supervisor) → StepOutputContract
-
-Final: WorkflowOutputContract aggregating all step outputs.
-
- 

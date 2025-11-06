@@ -32,7 +32,7 @@ async function loadContent(backend: string, basePath: string, databasePath: stri
   try {
     if (backend === 'database') {
       // For database mode, use DatabaseBackend directly to ensure proper cleanup
-      const { DatabaseBackend } = await import('../dist/core/content-registry/backends/database.js');
+      const { DatabaseBackend } = await import('../dist/core/content-registry/lib/storage/database-backend.js');
       const dbBackend = new DatabaseBackend(databasePath);
       try {
         const [agents, rules, workflows] = await Promise.all([
@@ -46,9 +46,9 @@ async function loadContent(backend: string, basePath: string, databasePath: stri
       }
     } else {
       // For filesystem mode, use factories directly
-      const { AgentFactory } = await import('../dist/core/content-registry/types/agents/factory.js');
-      const { RuleFactory } = await import('../dist/core/content-registry/types/rules/factory.js');
-      const { WorkflowFactory } = await import('../dist/core/content-registry/types/workflows/factory.js');
+      const { AgentFactory } = await import('../dist/core/content-registry/agents/factory.js');
+      const { RuleFactory } = await import('../dist/core/content-registry/rules/factory.js');
+      const { WorkflowFactory } = await import('../dist/core/content-registry/workflows/factory.js');
 
       const [agents, rules, workflows] = await Promise.all([
         AgentFactory.list(basePath).catch(() => []),
@@ -80,7 +80,7 @@ async function setupDatabase(databasePath: string, basePath: string): Promise<{ 
 
   // Seed if needed
   if (shouldSeed && existsSync(basePath)) {
-    const { seedFromFilesystem } = await import('../dist/core/content-registry/sync/seeder.js');
+    const { seedFromFilesystem } = await import('../dist/core/content-registry/lib/sync/seeder.js');
     const result = await seedFromFilesystem({ basePath, databasePath });
     const totalSeeded = result.agents.seeded + result.rules.seeded + result.workflows.seeded;
     return { seeded: totalSeeded };

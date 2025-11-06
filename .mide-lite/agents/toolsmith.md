@@ -1,6 +1,7 @@
 ---
 name: toolsmith
 description: "Creates developer tools, automation scripts, and workflow improvements."
+tags: [tooling]
 ---
 
 # TOOLSMITH AGENT

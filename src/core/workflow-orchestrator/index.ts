@@ -7,7 +7,9 @@
 
 import type { WorkflowInput, WorkflowOutput } from './schemas';
 import { WorkflowInputSchema, WorkflowOutputSchema } from './schemas';
-import type { Workflow, StepDefinition } from '../content-registry';
+import type { Workflow } from '../content-registry';
+import type { ExecutableWorkflow } from './compiler';
+import { compileWorkflow } from './compiler';
 
 // Generate unique IDs
 function generateId(prefix: string): string {
@@ -56,7 +58,7 @@ export class WorkflowOrchestrator {
 
   /**
    * Execute a workflow from input
-   * Loads workflow definition from ContentRegistry
+   * Loads workflow definition from ContentRegistry and compiles it
    */
   async execute(
     input: WorkflowInput,
@@ -65,11 +67,14 @@ export class WorkflowOrchestrator {
     // Generate workflow ID
     const workflowId = options.workflowId || generateId('workflow');
 
-    // Load workflow definition
-    const workflow = await this.loadWorkflowDefinition(input.name);
-    if (!workflow) {
+    // Load workflow template from content registry
+    const workflowTemplate = await this.loadWorkflowDefinition(input.name);
+    if (!workflowTemplate) {
       throw new ValidationError(`Workflow ${input.name} not found`);
     }
+
+    // Compile workflow template into executable workflow
+    const workflow = await compileWorkflow(workflowTemplate);
 
     // Initialize state
     const state = this.stateManager.createWorkflow(workflowId, workflow.name);
