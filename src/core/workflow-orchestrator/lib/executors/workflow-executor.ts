@@ -179,6 +179,8 @@ export class WorkflowExecutor {
 
     // Execute in batches based on policy.parallelism.maxConcurrent
     const maxConcurrent = workflow.policy.parallelism.maxConcurrent;
+    const failFast = workflow.policy.parallelism.failFast;
+
     for (let i = 0; i < steps.length; i += maxConcurrent) {
       const batch = steps.slice(i, i + maxConcurrent);
       const batchPromises = batch.map(async (stepDef) => {
@@ -194,8 +196,25 @@ export class WorkflowExecutor {
         return this.executeStep(workflow, stepDef, stepInputRaw, context, stepId);
       });
 
-      const batchResults = await Promise.all(batchPromises);
-      results.push(...batchResults);
+      if (failFast) {
+        // Fail fast: reject on first failure
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults);
+      } else {
+        // Continue on failure: collect all results
+        const batchResults = await Promise.allSettled(batchPromises);
+        for (const result of batchResults) {
+          if (result.status === 'fulfilled') {
+            results.push(result.value);
+          } else {
+            // Handle rejected promise - log and continue
+            telemetry.log('orchestrator', 'step.failed.continued', {
+              workflowId: context.workflowId,
+              error: result.reason?.message || 'Unknown error',
+            });
+          }
+        }
+      }
     }
 
     return results;

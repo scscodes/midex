@@ -10,7 +10,6 @@
 
 import { z } from 'zod';
 import type { RetryPolicy } from '../../content-registry/index.js';
-import { OrchestratorConfig } from './config.js';
 import { validateContract } from './validation.js';
 import { telemetry } from './telemetry.js';
 import { WorkflowError, StepError, AgentTaskError } from '../errors.js';
