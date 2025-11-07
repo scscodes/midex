@@ -35,6 +35,7 @@ export interface WorkflowExecution {
   state: WorkflowExecutionState;
   metadata: Record<string, unknown> | null;
   timeoutMs: number | null;
+  timeoutAt?: string | null; // Calculated field
   startedAt: string | null;
   completedAt: string | null;
   error: string | null;
@@ -386,7 +387,7 @@ export class WorkflowLifecycleManager {
 
   // Helper methods for row mapping
   private mapExecutionRow(row: any): WorkflowExecution {
-    return {
+    const execution = {
       id: row.id,
       workflowName: row.workflow_name,
       projectId: row.project_id,
@@ -399,6 +400,15 @@ export class WorkflowLifecycleManager {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
+
+    // Calculate timeoutAt if we have started_at and timeout_ms
+    if (execution.startedAt && execution.timeoutMs) {
+      const startTime = new Date(execution.startedAt).getTime();
+      const timeoutAt = new Date(startTime + execution.timeoutMs);
+      (execution as any).timeoutAt = timeoutAt.toISOString();
+    }
+
+    return execution;
   }
 
   private mapStepRow(row: any): WorkflowStep {

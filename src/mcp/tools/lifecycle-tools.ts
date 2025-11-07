@@ -90,10 +90,14 @@ export class LifecycleTools {
   }
 
   /**
-   * Complete a step
+   * Complete a step with optional output validation
    */
   completeStep(params: CompleteStepParams): WorkflowStep {
     const { stepId, output, error } = params;
+
+    // TODO: Validate output against StepOutput schema if provided
+    // This would require loading .mide-lite/contracts/StepOutput.schema.json
+    // and using Ajv for validation (similar to ExecutionLogger)
 
     const newState: StepExecutionState = error ? 'failed' : 'completed';
 
@@ -122,13 +126,19 @@ export class LifecycleTools {
   }
 
   /**
-   * Complete an execution (final state)
+   * Complete an execution (final state) with optional output validation
    */
   completeExecution(params: {
     executionId: string;
+    output?: Record<string, unknown>;
     error?: string;
   }): void {
-    const { executionId, error } = params;
+    const { executionId, output, error } = params;
+
+    // TODO: Validate output against WorkflowOutput schema if provided
+    // This would require loading .mide-lite/contracts/WorkflowOutput.schema.json
+    // and using Ajv for validation (similar to ExecutionLogger)
+
     const newState: WorkflowExecutionState = error ? 'failed' : 'completed';
 
     this.lifecycleManager.transitionWorkflowState(
@@ -162,7 +172,9 @@ export class LifecycleTools {
   /**
    * Get incomplete executions (for resumption)
    */
-  getIncompleteExecutions(workflowName?: string): WorkflowExecution[] {
-    return this.lifecycleManager.getIncompleteExecutions(workflowName);
+  getIncompleteExecutions(params?: {
+    workflowName?: string;
+  }): WorkflowExecution[] {
+    return this.lifecycleManager.getIncompleteExecutions(params?.workflowName);
   }
 }

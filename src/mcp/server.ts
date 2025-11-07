@@ -232,9 +232,20 @@ async function main() {
             type: 'object',
             properties: {
               executionId: { type: 'string' },
+              output: { type: 'object' },
               error: { type: 'string' },
             },
             required: ['executionId'],
+          },
+        },
+        {
+          name: 'get_incomplete_executions',
+          description: 'Get incomplete executions for resumption',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              workflowName: { type: 'string' },
+            },
           },
         },
 
@@ -407,6 +418,9 @@ async function main() {
         case 'complete_execution':
           lifecycleTools.completeExecution(args as any);
           result = { success: true };
+          break;
+        case 'get_incomplete_executions':
+          result = lifecycleTools.getIncompleteExecutions(args as any);
           break;
 
         // Logging Tools

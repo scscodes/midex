@@ -114,12 +114,16 @@ export class ContentProviderTools {
     contentMode?: ContentMode;
     includeHash?: boolean;
     ifNoneMatch?: string;
+    redactPolicy?: RedactPolicy;
   }): Promise<ContentResponse<Workflow> | { notModified: true } | null> {
     const {
       workflowName,
       detailLevel = 'summary',
+      fields,
+      contentMode = 'normalized',
       includeHash = true,
       ifNoneMatch,
+      redactPolicy = 'secrets',
     } = params;
 
     try {
@@ -130,7 +134,7 @@ export class ContentProviderTools {
         return { notModified: true };
       }
 
-      return this.formatWorkflow(workflow, detailLevel, includeHash);
+      return this.formatWorkflow(workflow, detailLevel, includeHash, contentMode, fields, redactPolicy);
     } catch (error) {
       return null;
     }
@@ -146,12 +150,16 @@ export class ContentProviderTools {
     contentMode?: ContentMode;
     includeHash?: boolean;
     ifNoneMatch?: string;
+    redactPolicy?: RedactPolicy;
   }): Promise<ContentResponse<Agent> | { notModified: true } | null> {
     const {
       agentName,
       detailLevel = 'summary',
+      fields,
+      contentMode = 'normalized',
       includeHash = true,
       ifNoneMatch,
+      redactPolicy = 'secrets',
     } = params;
 
     try {
@@ -162,7 +170,7 @@ export class ContentProviderTools {
         return { notModified: true };
       }
 
-      return this.formatAgent(agent, detailLevel, includeHash);
+      return this.formatAgent(agent, detailLevel, includeHash, contentMode, fields, redactPolicy);
     } catch (error) {
       return null;
     }
@@ -180,6 +188,7 @@ export class ContentProviderTools {
     contentMode?: ContentMode;
     includeHash?: boolean;
     ifNoneMatch?: string;
+    redactPolicy?: RedactPolicy;
     page?: number;
     limit?: number;
   }): Promise<ContentResponse<Rule>[]> {
@@ -188,7 +197,10 @@ export class ContentProviderTools {
       fileTypes,
       alwaysApply,
       detailLevel = 'summary',
+      fields,
+      contentMode = 'normalized',
       includeHash = true,
+      redactPolicy = 'secrets',
       page = 1,
       limit = 50,
     } = params;
@@ -220,7 +232,7 @@ export class ContentProviderTools {
     const offset = (page - 1) * limit;
     const paged = rules.slice(offset, offset + limit);
 
-    return paged.map(rule => this.formatRule(rule, detailLevel, includeHash));
+    return paged.map(rule => this.formatRule(rule, detailLevel, includeHash, contentMode, fields, redactPolicy));
   }
 
   /**
@@ -262,7 +274,10 @@ export class ContentProviderTools {
   private formatWorkflow(
     workflow: Workflow,
     detailLevel: DetailLevel,
-    includeHash: boolean = true
+    includeHash: boolean = true,
+    contentMode: ContentMode = 'normalized',
+    fields?: string[],
+    redactPolicy: RedactPolicy = 'secrets'
   ): ContentResponse<Workflow> {
     let item: Workflow;
 
@@ -287,7 +302,24 @@ export class ContentProviderTools {
       };
     } else {
       // Full content
-      item = workflow;
+      item = { ...workflow };
+
+      // Apply contentMode
+      if (contentMode === 'raw') {
+        // Return as-is (raw markdown)
+      } else if (contentMode === 'normalized') {
+        // Already normalized in schema
+      }
+
+      // Apply redaction
+      if (redactPolicy !== 'none') {
+        item.content = this.redactContent(item.content, redactPolicy);
+      }
+    }
+
+    // Apply fields filter
+    if (fields && fields.length > 0) {
+      item = this.filterFields(item, fields) as Workflow;
     }
 
     return {
@@ -303,7 +335,10 @@ export class ContentProviderTools {
   private formatAgent(
     agent: Agent,
     detailLevel: DetailLevel,
-    includeHash: boolean = true
+    includeHash: boolean = true,
+    contentMode: ContentMode = 'normalized',
+    fields?: string[],
+    redactPolicy: RedactPolicy = 'secrets'
   ): ContentResponse<Agent> {
     let item: Agent;
 
@@ -322,7 +357,24 @@ export class ContentProviderTools {
         content: '',
       };
     } else {
-      item = agent;
+      item = { ...agent };
+
+      // Apply contentMode
+      if (contentMode === 'raw') {
+        // Return as-is
+      } else if (contentMode === 'normalized') {
+        // Already normalized
+      }
+
+      // Apply redaction
+      if (redactPolicy !== 'none') {
+        item.content = this.redactContent(item.content, redactPolicy);
+      }
+    }
+
+    // Apply fields filter
+    if (fields && fields.length > 0) {
+      item = this.filterFields(item, fields) as Agent;
     }
 
     return {
@@ -338,7 +390,10 @@ export class ContentProviderTools {
   private formatRule(
     rule: Rule,
     detailLevel: DetailLevel,
-    includeHash: boolean = true
+    includeHash: boolean = true,
+    contentMode: ContentMode = 'normalized',
+    fields?: string[],
+    redactPolicy: RedactPolicy = 'secrets'
   ): ContentResponse<Rule> {
     let item: Rule;
 
@@ -359,7 +414,24 @@ export class ContentProviderTools {
         content: '',
       };
     } else {
-      item = rule;
+      item = { ...rule };
+
+      // Apply contentMode
+      if (contentMode === 'raw') {
+        // Return as-is
+      } else if (contentMode === 'normalized') {
+        // Already normalized
+      }
+
+      // Apply redaction
+      if (redactPolicy !== 'none') {
+        item.content = this.redactContent(item.content, redactPolicy);
+      }
+    }
+
+    // Apply fields filter
+    if (fields && fields.length > 0) {
+      item = this.filterFields(item, fields) as Rule;
     }
 
     return {
@@ -370,6 +442,46 @@ export class ContentProviderTools {
         path: rule.path,
       },
     };
+  }
+
+  /**
+   * Redact sensitive content based on policy
+   */
+  private redactContent(content: string, policy: RedactPolicy): string {
+    let redacted = content;
+
+    if (policy === 'secrets' || policy === 'pii+secrets') {
+      // Redact common secret patterns
+      redacted = redacted
+        .replace(/(['"])?[A-Za-z0-9_-]{20,}(['"])?/g, '[REDACTED_SECRET]') // API keys
+        .replace(/sk-[A-Za-z0-9]{48}/g, '[REDACTED_API_KEY]') // OpenAI keys
+        .replace(/ghp_[A-Za-z0-9]{36}/g, '[REDACTED_GITHUB_TOKEN]') // GitHub tokens
+        .replace(/password\s*=\s*["'].*?["']/gi, 'password=[REDACTED]') // Passwords
+        .replace(/token\s*=\s*["'].*?["']/gi, 'token=[REDACTED]'); // Tokens
+    }
+
+    if (policy === 'pii' || policy === 'pii+secrets') {
+      // Redact PII patterns
+      redacted = redacted
+        .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[REDACTED_EMAIL]') // Emails
+        .replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[REDACTED_SSN]') // SSN
+        .replace(/\b\d{16}\b/g, '[REDACTED_CREDIT_CARD]'); // Credit cards
+    }
+
+    return redacted;
+  }
+
+  /**
+   * Filter object to only include specified fields
+   */
+  private filterFields<T extends Record<string, any>>(obj: T, fields: string[]): Partial<T> {
+    const filtered: any = {};
+    for (const field of fields) {
+      if (field in obj) {
+        filtered[field] = obj[field];
+      }
+    }
+    return filtered;
   }
 
   /**
