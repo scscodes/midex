@@ -36,9 +36,9 @@ Discovers and validates projects via autodiscovery or user-supplied paths.
 
 ## Workflow Orchestrator
 
-Orchestrates the complete lifecycle of multi-agent workflows.
+Orchestrates the complete lifecycle of multi-agent workflows with policy-driven execution.
 
-**Location:** `src/core/workflow-orchestrator/`  
+**Location:** `src/core/workflow-orchestrator/`
 **Documentation:** [`../src/core/workflow-orchestrator/README.md`](../src/core/workflow-orchestrator/README.md)
 
 **Features:**
@@ -46,6 +46,8 @@ Orchestrates the complete lifecycle of multi-agent workflows.
 - Phase execution coordination
 - Agent delegation
 - Result aggregation
+- **Policy-driven execution**: Timeout, retry, and parallelism based on workflow complexity
+- Single source of truth: All execution settings from `execution-policies.ts`
 
 ## Database Infrastructure
 
@@ -97,8 +99,8 @@ All core modules use **Zod** for runtime validation with strict constraints to p
 - All optional arrays default to `[]`
 
 **Numeric Fields:**
-- Retry attempts: 1-10
-- Backoff duration: 0-300000ms (5 minutes)
+- Retry attempts: 1-10 (defined per execution policy)
+- Backoff duration: 0-5000ms (defined per execution policy)
 - Confidence: 0-1
 
 ### Module-Specific Constraints
@@ -107,10 +109,46 @@ For detailed schema constraints:
 - **Content Registry**: [`../src/core/content-registry/README.md#schema-constraints`](../src/core/content-registry/README.md#schema-constraints)
 - **Workflow Orchestrator**: [`../src/core/workflow-orchestrator/README.md#contract-validation-constraints`](../src/core/workflow-orchestrator/README.md#contract-validation-constraints)
 
+## Execution Policies
+
+**Policy-Driven Configuration**: Execution settings (timeout, retry, parallelism) are complexity-aware, not hardcoded globals.
+
+**Location:** `src/core/config/execution-policies.ts`
+**Documentation:** [`../src/core/config/README.md`](../src/core/config/README.md)
+
+### Pattern
+
+```typescript
+// ✅ Correct: Use execution policy
+const policy = getExecutionPolicy(workflow.complexity);
+timeout: policy.timeout.perStepMs
+
+// ❌ Wrong: Hardcoded global config
+timeout: Config.defaultTimeout
+```
+
+### Benefits
+
+- **No config drift**: Single source of truth eliminates conflicting settings
+- **Complexity-aware**: Simple workflows get short timeouts (5min), complex get longer (30min)
+- **Explicit dependencies**: Settings passed as parameters, not globals
+- **Clean separation**: Policy (execution) vs Config (operational)
+
+### Policy Values by Complexity
+
+| Complexity | Step Timeout | Total Timeout | Retry | Parallelism |
+|-----------|-------------|--------------|-------|-------------|
+| Simple | 5min | 15min | 1 attempt | 2 concurrent |
+| Moderate | 10min | 1hr | 2 attempts | 4 concurrent |
+| High | 30min | 2hr | 3 attempts | 6 concurrent |
+
 ## Architecture Overview
 
 ```
 src/core/
+├── config/              # Global execution policies
+│   ├── execution-policies.ts  # Policy definitions (timeout, retry, parallelism)
+│   └── README.md        # Policy documentation
 ├── content-registry/     # Content management
 │   ├── agents/          # Agent schemas, factory, sync
 │   ├── rules/           # Rule schemas, factory, sync
@@ -125,10 +163,12 @@ src/core/
 ├── project-discovery/    # Project discovery & reconciliation
 │   └── lib/             # Path & git utilities, config
 ├── workflow-orchestrator/ # Workflow lifecycle orchestration
+│   ├── compiler/        # Template → ExecutableWorkflow (with policy)
 │   ├── lib/             # Internal implementation
 │   │   ├── executors/   # Workflow, step, task executors
-│   │   ├── execution-state.ts  # Runtime state types
-│   │   └── config.ts    # Configuration
+│   │   ├── execution-boundary.ts  # Unified validation, timeout, retry
+│   │   ├── execution-state.ts     # Runtime state types
+│   │   └── config.ts    # Operational config (telemetry, escalation)
 │   └── schemas.ts       # Contract validation schemas
 └── database/             # Database infrastructure
     └── migrations/       # Database migration files

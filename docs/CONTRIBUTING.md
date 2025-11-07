@@ -14,6 +14,39 @@ npm run test
 npm run start
 ```
 
+## Architecture Patterns
+
+### Execution Policy Pattern
+
+**Use execution policies for timeout/retry/parallelism, not hardcoded config.**
+
+```typescript
+// ✅ Correct: Use execution policy
+import { getExecutionPolicy } from '@/core/config/execution-policies';
+
+const policy = getExecutionPolicy(workflow.complexity);
+await executeWithTimeout(fn, policy.timeout.perStepMs);
+
+// ❌ Wrong: Hardcoded global config
+await executeWithTimeout(fn, Config.defaultTimeout);
+```
+
+**Why:**
+- **Single source of truth**: `src/core/config/execution-policies.ts`
+- **Complexity-aware**: Simple workflows get short timeouts, complex get long
+- **No config drift**: One definition prevents conflicting settings
+- **Explicit dependencies**: Pass as parameters, not globals
+
+**Policy values by complexity:**
+- Simple: 5min/step, 15min total, 1 retry, 2 concurrent
+- Moderate: 10min/step, 1hr total, 2 retries, 4 concurrent
+- High: 30min/step, 2hr total, 3 retries, 6 concurrent
+
+**References:**
+- Implementation: [`src/core/config/execution-policies.ts`](../src/core/config/execution-policies.ts)
+- Example: [`src/core/workflow-orchestrator/`](../src/core/workflow-orchestrator/)
+- Documentation: [`docs/README.md#execution-policies`](./README.md#execution-policies)
+
 ## Database | Creating a new table
 1. Create migration file
   touch src/core/database/migrations/002_add_my_table.ts

@@ -196,5 +196,110 @@ describe('WorkflowOrchestrator - Design Pattern Enforcement', () => {
       expect(indexExports).not.toContain('OrchestratorConfig');
     });
   });
+
+  describe('Execution Policy Adoption', () => {
+    it('should have execution policies for all complexity levels', async () => {
+      const { EXECUTION_POLICIES } = await import('../config/execution-policies');
+
+      expect(EXECUTION_POLICIES.simple).toBeDefined();
+      expect(EXECUTION_POLICIES.moderate).toBeDefined();
+      expect(EXECUTION_POLICIES.high).toBeDefined();
+    });
+
+    it('should have complexity-aware timeouts in execution policies', async () => {
+      const { EXECUTION_POLICIES } = await import('../config/execution-policies');
+
+      // Simple workflows: 5min/15min
+      expect(EXECUTION_POLICIES.simple.timeout.perStepMs).toBe(300000);
+      expect(EXECUTION_POLICIES.simple.timeout.totalWorkflowMs).toBe(900000);
+
+      // Moderate workflows: 10min/1hr
+      expect(EXECUTION_POLICIES.moderate.timeout.perStepMs).toBe(600000);
+      expect(EXECUTION_POLICIES.moderate.timeout.totalWorkflowMs).toBe(3600000);
+
+      // High complexity: 30min/2hr
+      expect(EXECUTION_POLICIES.high.timeout.perStepMs).toBe(1800000);
+      expect(EXECUTION_POLICIES.high.timeout.totalWorkflowMs).toBe(7200000);
+    });
+
+    it('should have complexity-aware parallelism in execution policies', async () => {
+      const { EXECUTION_POLICIES } = await import('../config/execution-policies');
+
+      // Simple: 2 concurrent, fail fast
+      expect(EXECUTION_POLICIES.simple.parallelism.maxConcurrent).toBe(2);
+      expect(EXECUTION_POLICIES.simple.parallelism.failFast).toBe(true);
+
+      // Moderate: 4 concurrent
+      expect(EXECUTION_POLICIES.moderate.parallelism.maxConcurrent).toBe(4);
+      expect(EXECUTION_POLICIES.moderate.parallelism.failFast).toBe(false);
+
+      // High: 6 concurrent
+      expect(EXECUTION_POLICIES.high.parallelism.maxConcurrent).toBe(6);
+      expect(EXECUTION_POLICIES.high.parallelism.failFast).toBe(false);
+    });
+
+    it('should have complexity-aware retry policies', async () => {
+      const { EXECUTION_POLICIES } = await import('../config/execution-policies');
+
+      // Simple: 1 attempt, no escalation
+      expect(EXECUTION_POLICIES.simple.retryPolicy.maxAttempts).toBe(1);
+      expect(EXECUTION_POLICIES.simple.retryPolicy.escalateOnFailure).toBe(false);
+
+      // Moderate: 2 attempts, 1s backoff, escalate
+      expect(EXECUTION_POLICIES.moderate.retryPolicy.maxAttempts).toBe(2);
+      expect(EXECUTION_POLICIES.moderate.retryPolicy.backoffMs).toBe(1000);
+      expect(EXECUTION_POLICIES.moderate.retryPolicy.escalateOnFailure).toBe(true);
+
+      // High: 3 attempts, 5s backoff, escalate
+      expect(EXECUTION_POLICIES.high.retryPolicy.maxAttempts).toBe(3);
+      expect(EXECUTION_POLICIES.high.retryPolicy.backoffMs).toBe(5000);
+      expect(EXECUTION_POLICIES.high.retryPolicy.escalateOnFailure).toBe(true);
+    });
+
+    it('should not have timeout/retry fields in OrchestratorConfig', () => {
+      // Verify policy-related fields removed from OrchestratorConfig
+      const config = OrchestratorConfig as any;
+
+      expect(config.workflowTimeoutMs).toBeUndefined();
+      expect(config.stepTimeoutMs).toBeUndefined();
+      expect(config.agentTaskTimeoutMs).toBeUndefined();
+      expect(config.defaultMaxRetries).toBeUndefined();
+      expect(config.defaultBackoffMs).toBeUndefined();
+      expect(config.maxParallelSteps).toBeUndefined();
+      expect(config.maxParallelTasks).toBeUndefined();
+    });
+
+    it('should have only telemetry and escalation in OrchestratorConfig', () => {
+      // Verify only non-policy fields remain
+      expect(OrchestratorConfig.enableTelemetry).toBeDefined();
+      expect(OrchestratorConfig.logLevel).toBeDefined();
+      expect(OrchestratorConfig.escalationThreshold).toBeDefined();
+      expect(OrchestratorConfig.escalationThreshold.criticalFindings).toBe(1);
+      expect(OrchestratorConfig.escalationThreshold.highFindings).toBe(3);
+      expect(OrchestratorConfig.escalationThreshold.totalBlockers).toBe(2);
+    });
+
+    it('should attach policy to ExecutableWorkflow via compiler', async () => {
+      const { compileWorkflow } = await import('./compiler');
+      const { Workflow } = await import('../content-registry/workflows/schema');
+
+      const mockWorkflow: Workflow = {
+        name: 'test-workflow',
+        description: 'Test workflow',
+        complexity: 'moderate',
+        phases: [],
+        tags: [],
+        contentType: 'workflow',
+      };
+
+      const executable = await compileWorkflow(mockWorkflow);
+
+      expect(executable.policy).toBeDefined();
+      expect(executable.policy.timeout.perStepMs).toBe(600000); // moderate: 10min
+      expect(executable.policy.timeout.totalWorkflowMs).toBe(3600000); // moderate: 1hr
+      expect(executable.policy.parallelism.maxConcurrent).toBe(4);
+      expect(executable.policy.retryPolicy.maxAttempts).toBe(2);
+    });
+  });
 });
 

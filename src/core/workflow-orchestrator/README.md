@@ -234,11 +234,38 @@ State includes:
 - Outputs and errors
 - Full execution history
 
+## Execution Policies
+
+**Policy-Driven Execution**: Timeout, retry, and parallelism settings are driven by workflow complexity, not global configuration.
+
+Policies are defined in `src/core/config/execution-policies.ts` and attached by the `WorkflowCompiler` to each `ExecutableWorkflow`:
+
+| Complexity | Timeout (step/total) | Retry | Parallelism |
+|-----------|---------------------|-------|-------------|
+| **Simple** | 5min / 15min | 1 attempt, no escalation | 2 concurrent, fail fast |
+| **Moderate** | 10min / 1hr | 2 attempts, 1s backoff, escalate | 4 concurrent |
+| **High** | 30min / 2hr | 3 attempts, 5s backoff, escalate | 6 concurrent |
+
+### Policy Flow
+
+```
+WorkflowCompiler → ExecutableWorkflow.policy → WorkflowOrchestrator
+                                             ↓
+                                    WorkflowExecutor
+                                             ↓
+                                      StepExecutor
+                                             ↓
+                                   executeWithBoundary
+```
+
+Each layer receives timeout and retry settings from the policy, ensuring consistency across the execution stack.
+
 ## Retry & Escalation
 
 ### Retry Logic
-- Configurable max attempts and backoff
-- Per-layer retry policies
+- Policy-based: `ExecutionPolicy.retryPolicy` (maxAttempts, backoffMs, escalateOnFailure)
+- Per-step override: Steps can specify custom retry in workflow definition
+- Fallback: `stepDef.retry ?? workflow.policy.retryPolicy`
 - Exponential backoff support
 
 ### Escalation
@@ -267,15 +294,31 @@ All events include:
 
 ## Configuration
 
-Centralized constants in `config.ts`:
+Configuration is split into two systems:
+
+### Execution Policies (`src/core/config/execution-policies.ts`)
+Complexity-aware settings for timeout, retry, and parallelism:
+
+```typescript
+EXECUTION_POLICIES = {
+  simple: { timeout: { perStepMs: 300000, totalWorkflowMs: 900000 }, ... },
+  moderate: { timeout: { perStepMs: 600000, totalWorkflowMs: 3600000 }, ... },
+  high: { timeout: { perStepMs: 1800000, totalWorkflowMs: 7200000 }, ... },
+}
+```
+
+### Orchestrator Config (`lib/config.ts`)
+Operational settings for telemetry and escalation:
 
 ```typescript
 OrchestratorConfig = {
-  defaultMaxRetries: 3,
-  defaultBackoffMs: 1000,
-  workflowTimeoutMs: 3600000,
-  escalationThreshold: { ... },
-  // ...
+  enableTelemetry: true,
+  logLevel: 'info',
+  escalationThreshold: {
+    criticalFindings: 1,
+    highFindings: 3,
+    totalBlockers: 2,
+  },
 }
 ```
 

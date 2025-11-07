@@ -69,9 +69,13 @@
   - Infers execution mode (parallel/sequential) from dependency graph
   - Applies execution policies based on complexity
   - Generates agent tasks from phase descriptions
-- Execution policies: retry, parallelism, timeout by complexity (simple/moderate/high)
+- **Execution policy adoption complete** ✅:
+  - All timeouts, retry, parallelism from `execution-policies.ts`
+  - Zero hardcoded config in executors
+  - Complexity-aware: simple (5min), moderate (10min), high (30min) timeouts
+  - Single source of truth, no config drift
 - State management: in-memory workflow state tracking
-- Execution boundary: validation, timeout, telemetry at each layer
+- Execution boundary: validation, timeout, retry, telemetry at each layer
 - Ready for Phase 2: orchestrator loads templates, compiles, executes (pending LLM integration)
 
 **Future** (Phase 2):
@@ -121,21 +125,40 @@
 
 ---
 
-## Recent Updates (Phase 1.5)
+## Recent Updates
 
-**Workflow Compilation System** - Completed
+### Execution Policy Adoption (Phase 1.5) - Completed ✅
+
+**Refactored orchestrator to use execution policies exclusively** - eliminates config drift and hardcoded timeouts.
+
+Changes:
+- ✅ Removed all hardcoded timeouts from executors (WorkflowExecutor, StepExecutor, TaskExecutor)
+- ✅ Thread `workflow.policy` through execution chain (orchestrator → workflow → step → executeWithBoundary)
+- ✅ Remove dead code: `timeout.ts` (77 lines), `withRetry()` function
+- ✅ Clean OrchestratorConfig: removed 8 policy-related fields, kept telemetry/escalation only
+- ✅ Add 7 comprehensive tests verifying policy-driven behavior
+- ✅ Update documentation: README, orchestrator docs, code comments
+
+**Benefits**:
+- Single source of truth: `execution-policies.ts`
+- Complexity-aware: simple (5min), moderate (10min), high (30min) per-step timeouts
+- No config drift: impossible to have conflicting timeout settings
+- Explicit dependencies: timeout passed as parameters, not global config
+
+**Architecture Pattern**:
+```
+WorkflowCompiler → ExecutableWorkflow.policy → Orchestrator → executors → executeWithBoundary
+```
+
+### Workflow Compilation System (Phase 1.5) - Completed ✅
+
 - ✅ Standardized all 9 workflow files with phase-based structure
 - ✅ Implemented WorkflowCompiler for template → executable transformation
 - ✅ Added execution policies (retry, parallelism, timeout) by complexity
 - ✅ Database migration 006: added complexity + phases columns
 - ✅ Dependency-based parallelism inference from workflow graph
 - ✅ Separation: content (templates) vs config (policies) vs runtime (compilation)
-- ✅ All 51 tests passing
-
-**Architecture Pattern**:
-```
-Workflow Template (markdown) → WorkflowCompiler → ExecutableWorkflow → Orchestrator
-```
+- ✅ All tests passing (58 tests)
 
 ---
 
