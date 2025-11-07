@@ -11,14 +11,10 @@ import { StepExecutor } from './step-executor.js';
 import { telemetry } from '../telemetry.js';
 import { WorkflowError } from '../../errors.js';
 import { shouldEscalate } from '../retry.js';
-import { OrchestratorConfig } from '../config.js';
 import { executeWithBoundary } from '../execution-boundary.js';
 
 export class WorkflowExecutor {
-  constructor(
-    private readonly stepExecutor: StepExecutor,
-    private readonly maxParallelSteps: number = OrchestratorConfig.maxParallelSteps
-  ) {}
+  constructor(private readonly stepExecutor: StepExecutor) {}
 
   /**
    * Execute a workflow with its defined steps
@@ -47,7 +43,7 @@ export class WorkflowExecutor {
 
       // Execute parallel steps with concurrency control
       if (parallelSteps.length > 0) {
-        const parallelOutputs = await this.executeParallelSteps(parallelSteps, input, context);
+        const parallelOutputs = await this.executeParallelSteps(workflow, parallelSteps, input, context);
         stepOutputs.push(...parallelOutputs);
 
         for (const output of parallelOutputs) {
@@ -69,7 +65,7 @@ export class WorkflowExecutor {
           expected_output: 'StepOutput',
         };
 
-        const stepOutput = await this.executeStep(stepDef, stepInputRaw, context, stepId);
+        const stepOutput = await this.executeStep(workflow, stepDef, stepInputRaw, context, stepId);
         stepOutputs.push(stepOutput);
 
         // Aggregate outputs
@@ -138,6 +134,7 @@ export class WorkflowExecutor {
    * Execute a single step with boundary protection
    */
   private async executeStep(
+    workflow: ExecutableWorkflow,
     stepDef: StepDefinition,
     stepInput: StepInput,
     context: { workflowId: string },
@@ -152,8 +149,8 @@ export class WorkflowExecutor {
         input: stepInput,
         inputSchema: StepInputSchema,
         outputSchema: StepOutputSchema,
-        timeoutMs: OrchestratorConfig.stepTimeoutMs,
-        retryPolicy: stepDef.retry,
+        timeoutMs: workflow.policy.timeout.perStepMs,
+        retryPolicy: stepDef.retry ?? workflow.policy.retryPolicy,
         context: {
           layer: 'step',
           workflowId: context.workflowId,
@@ -168,15 +165,17 @@ export class WorkflowExecutor {
    * Execute parallel steps with concurrency control
    */
   private async executeParallelSteps(
+    workflow: ExecutableWorkflow,
     steps: StepDefinition[],
     input: WorkflowInput,
     context: { workflowId: string }
   ): Promise<StepOutput[]> {
     const results: StepOutput[] = [];
 
-    // Execute in batches based on maxParallelSteps
-    for (let i = 0; i < steps.length; i += this.maxParallelSteps) {
-      const batch = steps.slice(i, i + this.maxParallelSteps);
+    // Execute in batches based on policy.parallelism.maxConcurrent
+    const maxConcurrent = workflow.policy.parallelism.maxConcurrent;
+    for (let i = 0; i < steps.length; i += maxConcurrent) {
+      const batch = steps.slice(i, i + maxConcurrent);
       const batchPromises = batch.map(async (stepDef) => {
         const stepId = `${context.workflowId}-step-${stepDef.name}`;
         const stepInputRaw: StepInput = {
@@ -187,7 +186,7 @@ export class WorkflowExecutor {
           expected_output: 'StepOutput',
         };
 
-        return this.executeStep(stepDef, stepInputRaw, context, stepId);
+        return this.executeStep(workflow, stepDef, stepInputRaw, context, stepId);
       });
 
       const batchResults = await Promise.all(batchPromises);
