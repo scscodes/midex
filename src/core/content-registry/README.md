@@ -68,6 +68,96 @@ await syncContentRegistry({
 
 ## Architecture
 
+The Content Registry uses a **backend abstraction pattern** allowing seamless switching between filesystem and database storage without changing client code.
+
+### Backend Interface
+
+All backends implement the `ContentBackend` interface:
+
+```typescript
+interface ContentBackend {
+  // Agents
+  listAgents(): Promise<Agent[]>;
+  getAgent(name: string): Promise<Agent>;
+  createAgent(agent: Agent): Promise<void>;
+  updateAgent(name: string, agent: Agent): Promise<void>;
+  deleteAgent(name: string): Promise<void>;
+
+  // Rules
+  listRules(): Promise<Rule[]>;
+  getRule(name: string): Promise<Rule>;
+  createRule(rule: Rule): Promise<void>;
+  updateRule(name: string, rule: Rule): Promise<void>;
+  deleteRule(name: string): Promise<void>;
+
+  // Workflows
+  listWorkflows(): Promise<Workflow[]>;
+  getWorkflow(name: string): Promise<Workflow>;
+  createWorkflow(workflow: Workflow): Promise<void>;
+  updateWorkflow(name: string, workflow: Workflow): Promise<void>;
+  deleteWorkflow(name: string): Promise<void>;
+
+  // Advanced queries (database backend only)
+  searchAgents?(query: string): Promise<Agent[]>;
+  searchRules?(query: string): Promise<Rule[]>;
+  searchWorkflows?(query: string): Promise<Workflow[]>;
+  getAgentsByTag?(tag: string): Promise<Agent[]>;
+  getRulesByTag?(tag: string): Promise<Rule[]>;
+  getWorkflowsByTag?(tag: string): Promise<Workflow[]>;
+
+  // Resource management
+  close(): void;
+}
+```
+
+### Filesystem Backend
+
+- **Storage:** Direct markdown files in `.mide-lite/`
+- **Performance:** Fast reads, no connection overhead
+- **Use Case:** Lite mode, single developer, version control friendly
+- **Limitations:** No advanced querying, no FTS, no audit logging
+
+### Database Backend
+
+- **Storage:** SQLite database with structured tables
+- **Performance:** Indexed queries, prepared statements, caching
+- **Use Case:** Standard mode, team collaboration, advanced features
+- **Features:**
+  - FTS5 full-text search
+  - Normalized tags (indexed)
+  - Audit logging
+  - Change tracking
+  - Advanced filters
+
+### Module-Per-Type Structure
+
+Each content type (agents, rules, workflows) has its own module:
+
+```
+content-registry/
+├── agents/
+│   ├── schema.ts           # Zod schemas
+│   ├── factory.ts          # Content loading
+│   ├── sync.ts             # Sync handler
+│   └── index.ts            # Public exports
+├── rules/
+│   ├── schema.ts
+│   ├── factory.ts
+│   ├── sync.ts
+│   └── index.ts
+├── workflows/
+│   ├── schema.ts
+│   ├── execution-schema.ts # Workflow execution structures
+│   ├── factory.ts
+│   ├── sync.ts
+│   └── index.ts
+└── lib/
+    ├── storage/            # Backend implementations
+    ├── sync/               # Synchronization logic
+    ├── content/            # Shared utilities
+    └── shared-schemas.ts   # Cross-module schemas
+```
+
 ## Schema Constraints
 
 All content types are validated with strict Zod schemas to prevent data bloat and ensure consistency.

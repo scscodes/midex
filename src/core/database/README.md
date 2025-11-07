@@ -387,7 +387,63 @@ database/
     ├── 002_normalize_tags.ts             # Normalized tag tables with indexes
     ├── 003_add_check_constraints.ts      # Zod-matching CHECK constraints
     ├── 004_add_full_text_search.ts       # FTS5 virtual tables and triggers
-    └── 005_add_audit_logging.ts          # Audit log table and triggers
+    ├── 005_add_audit_logging.ts          # Audit log table and triggers
+    ├── 006_add_workflow_phases.ts        # Workflow phases and compiler support
+    └── 007_add_execution_lifecycle.ts    # Execution tracking tables (MCP integration)
+```
+
+### Migration 007: Execution Lifecycle Tables
+
+**Purpose:** Support MCP server execution tracking and lifecycle management
+
+**Tables Created:**
+- `workflow_executions` - Workflow execution state machine
+- `workflow_steps` - Step-level execution with dependency tracking
+- `execution_logs` - Idempotent logging with contract validation
+- `artifacts` - Immutable artifact storage
+- `findings` - Tagged findings with FTS5 search
+- `findings_fts` - FTS5 virtual table for finding search
+- `project_associations` - Discovered project tracking
+
+**Key Features:**
+- State machine: `pending` → `running` → `completed/failed/timeout/escalated`
+- Step dependencies via `depends_on` JSON array
+- Timeout detection with auto-transition
+- Idempotent logging via unique constraint on `(execution_id, layer, layer_id)`
+- FTS5 full-text search on findings
+- Project-specific and global finding scoping (`is_global` flag)
+
+**Example Usage:**
+```typescript
+import { WorkflowLifecycleManager } from '@/mcp/lifecycle/workflow-lifecycle-manager';
+import { initDatabase } from '@/core/database';
+
+const db = initDatabase();
+const lifecycleManager = new WorkflowLifecycleManager(db.connection);
+
+// Create execution
+const execution = lifecycleManager.createExecution({
+  workflowName: 'feature-development',
+  timeoutMs: 3600000, // 1 hour
+});
+
+// Transition state
+lifecycleManager.transitionWorkflowState(execution.id, 'running');
+
+// Create step with dependencies
+const step1 = lifecycleManager.createStep({
+  executionId: execution.id,
+  stepName: 'analyze',
+});
+
+const step2 = lifecycleManager.createStep({
+  executionId: execution.id,
+  stepName: 'implement',
+  dependsOn: [step1.id], // Cannot start until step1 completes
+});
+
+// Check for timed-out executions
+const timedOut = lifecycleManager.checkTimeouts();
 ```
 
 ## Adding New Tables

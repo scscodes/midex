@@ -1,6 +1,10 @@
 # Workflow Lifecycle Orchestrator
 
+**Status:** 🚧 Architecture Defined, Implementation Planned for v0.2.0
+
 Layered orchestrator system for managing multi-agent workflow execution with contracts, state management, retry/escalation, and telemetry.
+
+> **Note:** The full orchestrator implementation is planned for v0.2.0. Currently, the schemas, architecture, and configuration are defined. For execution lifecycle management in the current version (v0.1.0), see the [MCP Lifecycle Manager](../../mcp/README.md#lifecycle-management).
 
 ## Architecture
 
@@ -275,7 +279,54 @@ OrchestratorConfig = {
 }
 ```
 
-## Usage
+## Current Status (v0.1.0)
+
+### What's Available Now
+
+1. **Contract Schemas** (`schemas.ts`)
+   - Complete Zod schemas for all layers
+   - Input/output validation interfaces
+   - Artifact, Decision, and Finding schemas
+
+2. **Configuration** (`lib/config.ts`)
+   - Orchestrator configuration constants
+   - Retry policies
+   - Escalation thresholds
+   - Timeout settings
+
+3. **Error Hierarchy** (`errors.ts`)
+   - Typed error classes for all failure modes
+
+4. **Execution State Types** (`lib/execution-state.ts`)
+   - Runtime state interfaces
+   - State tracking structures
+
+### Interim Solution: MCP Lifecycle Manager
+
+For the current release (v0.1.0), workflow execution lifecycle is managed by the **MCP Lifecycle Manager** (`src/mcp/lifecycle/`):
+
+```typescript
+import { WorkflowLifecycleManager } from '@/mcp/lifecycle/workflow-lifecycle-manager';
+import { initDatabase } from '@/core/database';
+
+const db = initDatabase();
+const lifecycleManager = new WorkflowLifecycleManager(db.connection);
+
+// Create and manage workflow execution
+const execution = lifecycleManager.createExecution({
+  workflowName: 'feature-development',
+  timeoutMs: 3600000,
+});
+
+lifecycleManager.transitionWorkflowState(execution.id, 'running');
+// ... execute steps, track state, handle timeouts
+
+lifecycleManager.transitionWorkflowState(execution.id, 'completed');
+```
+
+See [MCP Server Documentation](../../mcp/README.md) for complete lifecycle management details.
+
+## Planned Usage (v0.2.0)
 
 ```typescript
 import { WorkflowOrchestrator } from '@/core/workflow-orchestrator';
