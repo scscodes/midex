@@ -10,6 +10,15 @@ export interface DatabaseOptions {
 }
 
 /**
+ * Initialization lock entry with retry tracking
+ */
+interface InitializationLock {
+  promise: Promise<void>;
+  failedAt?: number; // Timestamp of last failure for backoff calculation
+  attempts: number;
+}
+
+/**
  * Application database wrapper with:
  * - WAL mode for better concurrency
  * - Foreign key enforcement
@@ -24,7 +33,18 @@ export class AppDatabase {
   private _initialized = false;
 
   // Prevent concurrent migrations/initializations for the same DB path
-  private static initializationLocks: Map<string, Promise<void>> = new Map();
+  // Uses atomic check-and-set pattern to prevent race conditions
+  private static initializationLocks: Map<string, InitializationLock> = new Map();
+
+  // Use moderate policy timeout for migration operations (10 minutes)
+  private static readonly MIGRATION_TIMEOUT_MS = 600000; // 10 minutes (moderate policy perStepMs)
+
+  // Use moderate policy retry settings for migration failures
+  private static readonly MIGRATION_RETRY_POLICY = {
+    maxAttempts: 2,
+    backoffMs: 1000,
+    escalateOnFailure: true,
+  };
 
   private constructor(db: DB) {
     this.db = db;
@@ -47,22 +67,9 @@ export class AppDatabase {
         instance.configurePragmas();
       }
 
-      // Run migrations if enabled (serialize per dbPath)
+      // Run migrations if enabled (serialize per dbPath with atomic check-and-set)
       if (options.runMigrations !== false && !options.readonly) {
-        const existing = AppDatabase.initializationLocks.get(dbPath);
-        if (existing) {
-          await existing;
-        } else {
-          const lock = (async () => {
-            await instance!.applyMigrations();
-          })();
-          AppDatabase.initializationLocks.set(dbPath, lock);
-          try {
-            await lock;
-          } finally {
-            AppDatabase.initializationLocks.delete(dbPath);
-          }
-        }
+        await instance.awaitMigrationLock(dbPath);
       }
 
       instance._initialized = true;
@@ -75,8 +82,169 @@ export class AppDatabase {
         // ignore close errors during init failure
       }
       const phase = instance ? 'migration' : 'connection';
-      throw new Error(`AppDatabase initialization failed during ${phase}: ${error instanceof Error ? error.message : String(error)}`);
+      const originalError = error instanceof Error ? error : new Error(String(error));
+      const initError = new Error(`AppDatabase initialization failed during ${phase}: ${originalError.message}`);
+      initError.cause = originalError;
+      throw initError;
     }
+  }
+
+  /**
+   * Atomically acquire or await migration lock for database path
+   * Implements retry with backoff aligned with execution policy patterns
+   */
+  private async awaitMigrationLock(dbPath: string): Promise<void> {
+    // Atomic check-and-set: only one caller creates the lock
+    let lock = AppDatabase.initializationLocks.get(dbPath);
+    
+    if (lock) {
+      // Lock exists - check if it's a failed lock needing retry
+      if (lock.failedAt) {
+        // Previous attempt failed - check backoff and retry eligibility
+        const backoffMs = AppDatabase.MIGRATION_RETRY_POLICY.backoffMs * lock.attempts;
+        const timeSinceFailure = Date.now() - lock.failedAt;
+        
+        if (lock.attempts >= AppDatabase.MIGRATION_RETRY_POLICY.maxAttempts) {
+          // Max attempts reached - throw error
+          const error = new Error(
+            `Migration failed after ${lock.attempts} attempts. ${AppDatabase.MIGRATION_RETRY_POLICY.escalateOnFailure ? 'Escalation required.' : ''}`
+          );
+          error.cause = new Error('Migration retry limit exceeded');
+          throw error;
+        }
+        
+        if (timeSinceFailure < backoffMs) {
+          // Still in backoff period - wait remaining time
+          await new Promise(resolve => setTimeout(resolve, backoffMs - timeSinceFailure));
+        }
+        
+        // Backoff expired - retry migration
+        return this.retryMigration(dbPath, lock.attempts + 1);
+      }
+      
+      // Lock is in progress - wait for it
+      await this.waitForLockWithTimeout(lock, dbPath);
+      return;
+    }
+
+    // No lock exists - create one atomically
+    const lockPromise = this.runMigrationsWithRetry(dbPath, 1);
+    lock = {
+      promise: lockPromise,
+      attempts: 1,
+    };
+    
+    // Atomic set - only first caller succeeds
+    const existing = AppDatabase.initializationLocks.get(dbPath);
+    if (existing) {
+      // Another caller beat us - wait for their lock instead
+      if (existing.failedAt) {
+        // Handle failed lock
+        const backoffMs = AppDatabase.MIGRATION_RETRY_POLICY.backoffMs * existing.attempts;
+        const timeSinceFailure = Date.now() - existing.failedAt;
+        
+        if (existing.attempts >= AppDatabase.MIGRATION_RETRY_POLICY.maxAttempts) {
+          const error = new Error(
+            `Migration failed after ${existing.attempts} attempts. ${AppDatabase.MIGRATION_RETRY_POLICY.escalateOnFailure ? 'Escalation required.' : ''}`
+          );
+          error.cause = new Error('Migration retry limit exceeded');
+          throw error;
+        }
+        
+        if (timeSinceFailure < backoffMs) {
+          await new Promise(resolve => setTimeout(resolve, backoffMs - timeSinceFailure));
+        }
+        
+        return this.retryMigration(dbPath, existing.attempts + 1);
+      }
+      
+      await this.waitForLockWithTimeout(existing, dbPath);
+      return;
+    }
+    
+    // We won the race - set our lock
+    AppDatabase.initializationLocks.set(dbPath, lock);
+    
+    try {
+      await lockPromise;
+      // Success - clean up lock
+      AppDatabase.initializationLocks.delete(dbPath);
+    } catch (error) {
+      // Failure - mark for retry with backoff (keep lock for backoff tracking)
+      lock.failedAt = Date.now();
+      // Don't delete lock - keep it for backoff calculation
+      throw error;
+    }
+  }
+
+  /**
+   * Wait for lock with timeout protection
+   */
+  private async waitForLockWithTimeout(lock: InitializationLock, dbPath: string): Promise<void> {
+    return Promise.race([
+      lock.promise,
+      new Promise<void>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Migration lock wait timeout after ${AppDatabase.MIGRATION_TIMEOUT_MS}ms for ${dbPath}`)),
+          AppDatabase.MIGRATION_TIMEOUT_MS
+        )
+      ),
+    ]);
+  }
+
+  /**
+   * Retry migration with incremented attempt count
+   */
+  private async retryMigration(dbPath: string, attempt: number): Promise<void> {
+    // Atomically check if another caller already started retry
+    const existing = AppDatabase.initializationLocks.get(dbPath);
+    if (existing && !existing.failedAt) {
+      // Another caller already started retry - wait for it
+      await this.waitForLockWithTimeout(existing, dbPath);
+      return;
+    }
+    
+    const lockPromise = this.runMigrationsWithRetry(dbPath, attempt);
+    const lock: InitializationLock = {
+      promise: lockPromise,
+      attempts: attempt,
+    };
+    
+    // Atomic set
+    const currentLock = AppDatabase.initializationLocks.get(dbPath);
+    if (currentLock && !currentLock.failedAt) {
+      // Another caller beat us - wait for their lock
+      await this.waitForLockWithTimeout(currentLock, dbPath);
+      return;
+    }
+    
+    AppDatabase.initializationLocks.set(dbPath, lock);
+    
+    try {
+      await lockPromise;
+      // Success - clean up lock
+      AppDatabase.initializationLocks.delete(dbPath);
+    } catch (error) {
+      // Failure - mark for retry with backoff (keep lock for backoff tracking)
+      lock.failedAt = Date.now();
+      // Don't delete lock - keep it for backoff calculation
+      throw error;
+    }
+  }
+
+  /**
+   * Run migrations with timeout protection
+   */
+  private async runMigrationsWithRetry(dbPath: string, attempt: number): Promise<void> {
+    return Promise.race([
+      this.applyMigrations(),
+      new Promise<void>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Migration timeout after ${AppDatabase.MIGRATION_TIMEOUT_MS}ms (attempt ${attempt})`)),
+          AppDatabase.MIGRATION_TIMEOUT_MS
+        )
+      ),
+    ]);
   }
 
   /**
@@ -142,15 +310,24 @@ export class AppDatabase {
    * Get the underlying better-sqlite3 Database instance
    */
   get connection(): DB {
-    this.checkClosed();
-    if (!this._initialized) {
-      throw new Error('Database not initialized');
-    }
+    this.checkReady();
     return this.db;
   }
 
   /**
-   * Check if database is closed
+   * Check if database is closed or not initialized
+   */
+  private checkReady(): void {
+    if (this._closed) {
+      throw new Error('Database is closed');
+    }
+    if (!this._initialized) {
+      throw new Error('Database not initialized');
+    }
+  }
+
+  /**
+   * Check if database is closed (for internal use during initialization)
    */
   private checkClosed(): void {
     if (this._closed) {
@@ -165,7 +342,7 @@ export class AppDatabase {
    * @returns Cached or newly created prepared statement
    */
   prepare(sql: string): Statement {
-    this.checkClosed();
+    this.checkReady();
 
     if (!this.stmtCache.has(sql)) {
       this.stmtCache.set(sql, this.db.prepare(sql));
@@ -180,7 +357,7 @@ export class AppDatabase {
    * @returns Result of the function
    */
   transaction<T>(fn: (db: DB) => T): T {
-    this.checkClosed();
+    this.checkReady();
     const txn = this.db.transaction(fn);
     return txn(this.db);
   }
@@ -189,7 +366,7 @@ export class AppDatabase {
    * Execute SQL directly (for schema changes, not queries)
    */
   exec(sql: string): void {
-    this.checkClosed();
+    this.checkReady();
     this.db.exec(sql);
   }
 
@@ -197,6 +374,9 @@ export class AppDatabase {
    * Check if database connection is healthy
    */
   isHealthy(): boolean {
+    if (!this._initialized || this._closed) {
+      return false;
+    }
     try {
       this.db.prepare('SELECT 1').get();
       return true;
@@ -209,6 +389,9 @@ export class AppDatabase {
    * Get current schema version
    */
   getSchemaVersion(): number {
+    if (!this._initialized || this._closed) {
+      return 0;
+    }
     try {
       const result = this.db
         .prepare('SELECT MAX(version) as version FROM schema_migrations')
