@@ -8,8 +8,7 @@ import type { AgentInput, StepInput, AgentOutput } from '../../schemas.js';
 import { AgentInputSchema, AgentOutputSchema } from '../../schemas.js';
 import { telemetry } from '../telemetry.js';
 import { AgentTaskError } from '../../errors.js';
-import { OrchestratorConfig } from '../config.js';
-import { executeWithBoundary } from '../execution-boundary.js';
+import { validateContract } from '../validation.js';
 
 export class AgentTaskExecutor {
   /**
@@ -34,36 +33,22 @@ export class AgentTaskExecutor {
         expected_output: 'AgentOutput',
       };
 
-      // Execute task with unified boundary (validation, timeout)
-      const output: AgentOutput = await executeWithBoundary(
-        async (validatedInput) => {
-          // TODO: Invoke actual agent here
-          // For now, return a placeholder output
-          return {
-            summary: `Task ${taskDef.name} executed by ${taskDef.agent}`,
-            artifacts: [],
-            decisions: [],
-            findings: [],
-            next_steps: [],
-            blockers: [],
-            references: validatedInput.references,
-            confidence: 0.8,
-          };
-        },
-        {
-          input: agentInputRaw,
-          inputSchema: AgentInputSchema,
-          outputSchema: AgentOutputSchema,
-          timeoutMs: OrchestratorConfig.agentTaskTimeoutMs,
-          context: {
-            layer: 'task',
-            workflowId: context.workflowId,
-            stepId: context.stepId,
-            taskId: context.taskId,
-            name: taskDef.name,
-          },
-        }
-      );
+      // Validate agent input contract
+      const validatedInput = validateContract(AgentInputSchema, agentInputRaw, 'agent task input');
+
+      // TODO: Invoke actual agent here
+      // For now, return a placeholder output
+      // NOTE: Timeout enforcement comes from caller (StepExecutor) via executeWithBoundary wrapper
+      const output: AgentOutput = {
+        summary: `Task ${taskDef.name} executed by ${taskDef.agent}`,
+        artifacts: [],
+        decisions: [],
+        findings: [],
+        next_steps: [],
+        blockers: [],
+        references: validatedInput.references,
+        confidence: 0.8,
+      };
 
       const duration = Date.now() - startTime;
       telemetry.taskCompleted(context.workflowId, context.stepId, context.taskId, duration);
