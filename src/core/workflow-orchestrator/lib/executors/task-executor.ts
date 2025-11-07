@@ -3,13 +3,13 @@
  * Agent tasks can be reused across multiple steps
  */
 
-import type { AgentTaskDefinition } from '../../../content-registry';
-import type { AgentInput, StepInput, AgentOutput } from '../../schemas';
-import { AgentInputSchema, AgentOutputSchema } from '../../schemas';
-import { telemetry } from '../telemetry';
-import { AgentTaskError } from '../../errors';
-import { OrchestratorConfig } from '../config';
-import { executeWithBoundary } from '../execution-boundary';
+import type { AgentTaskDefinition } from '../../../content-registry/index.js';
+import type { AgentInput, StepInput, AgentOutput } from '../../schemas.js';
+import { AgentInputSchema, AgentOutputSchema } from '../../schemas.js';
+import { telemetry } from '../telemetry.js';
+import { AgentTaskError } from '../../errors.js';
+import { OrchestratorConfig } from '../config.js';
+import { executeWithBoundary } from '../execution-boundary.js';
 
 export class AgentTaskExecutor {
   /**

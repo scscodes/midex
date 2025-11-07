@@ -20,29 +20,33 @@ Shared SQLite database infrastructure with automatic migrations, prepared statem
 ```typescript
 import { initDatabase } from '@/core/database';
 
-// Initialize with auto-migrations
-const db = initDatabase({ path: './data/app.db' });
+async function main() {
+  // Initialize with auto-migrations
+  const db = await initDatabase({ path: './data/app.db' });
 
-// Use cached prepared statements
-const stmt = db.prepare('SELECT * FROM agents WHERE name = ?');
-const agent = stmt.get('supervisor');
+  // Use cached prepared statements
+  const stmt = db.prepare('SELECT * FROM agents WHERE name = ?');
+  const agent = stmt.get('supervisor');
 
-// Execute in transaction
-db.transaction((dbConn) => {
-  dbConn.prepare('INSERT INTO agents...').run(...);
-  dbConn.prepare('INSERT INTO audit_log...').run(...);
-});
+  // Execute in transaction
+  db.transaction((dbConn) => {
+    dbConn.prepare('INSERT INTO agents...').run(...);
+    dbConn.prepare('INSERT INTO audit_log...').run(...);
+  });
 
-// Check health
-if (db.isHealthy()) {
-  console.log('Database is healthy');
+  // Check health
+  if (db.isHealthy()) {
+    console.log('Database is healthy');
+  }
+
+  // Check schema version
+  console.log(`Schema version: ${db.getSchemaVersion()}`);
+
+  // Clean up
+  db.close();
 }
 
-// Check schema version
-console.log(`Schema version: ${db.getSchemaVersion()}`);
-
-// Clean up
-db.close();
+main();
 ```
 
 ## Configuration Options
@@ -143,27 +147,31 @@ For advanced use cases, manually control migrations:
 
 ```typescript
 import { initDatabase } from '@/core/database';
-import { MigrationRunner, discoverMigrationsSync } from '@/core/database/migrations';
+import { MigrationRunner, discoverMigrations } from '@/core/database/migrations';
 
-const db = initDatabase({
-  path: './data/app.db',
-  runMigrations: false  // Disable auto-migrations
-});
+async function controlMigrations() {
+  const db = await initDatabase({
+    path: './data/app.db',
+    runMigrations: false  // Disable auto-migrations
+  });
 
-const runner = new MigrationRunner(db.connection);
-const migrations = discoverMigrationsSync();
+  const runner = new MigrationRunner(db.connection);
+  const migrations = await discoverMigrations();
 
-// Dry run to see what would be applied
-const dryRun = runner.runMigrations(migrations, {
-  dryRun: true
-});
-console.log('Pending migrations:', dryRun);
+  // Dry run to see what would be applied
+  const dryRun = runner.runMigrations(migrations, {
+    dryRun: true
+  });
+  console.log('Pending migrations:', dryRun);
 
-// Apply with destructive migrations allowed
-const results = runner.runMigrations(migrations, {
-  allowDestructive: true
-});
-console.log('Applied:', results.filter(r => r.status === 'applied'));
+  // Apply with destructive migrations allowed
+  const results = runner.runMigrations(migrations, {
+    allowDestructive: true
+  });
+  console.log('Applied:', results.filter(r => r.status === 'applied'));
+}
+
+controlMigrations();
 ```
 
 ### Migration Best Practices
@@ -179,7 +187,7 @@ console.log('Applied:', results.filter(r => r.status === 'applied'));
 ### Checking Migration Status
 
 ```typescript
-const db = initDatabase();
+const db = await initDatabase();
 
 // Current version
 const version = db.getSchemaVersion();
@@ -197,7 +205,7 @@ applied.forEach(m => {
 ## Transaction Helpers
 
 ```typescript
-const db = initDatabase();
+const db = await initDatabase();
 
 // Simple transaction
 db.transaction((dbConn) => {
@@ -217,7 +225,7 @@ const result = db.transaction((dbConn) => {
 ## Prepared Statement Caching
 
 ```typescript
-const db = initDatabase();
+const db = await initDatabase();
 
 // First call creates and caches statement
 const stmt1 = db.prepare('SELECT * FROM agents WHERE name = ?');
@@ -239,7 +247,7 @@ Tags are stored in relational tables for efficient querying and indexing:
 ```typescript
 import { DatabaseBackend } from '@/core/content-registry/lib/storage/database-backend';
 
-const backend = new DatabaseBackend('./data/app.db');
+const backend = await DatabaseBackend.create('./data/app.db');
 
 // Query by single tag (uses normalized tables)
 const securityAgents = await backend.getAgentsByTag('security');
@@ -267,7 +275,7 @@ SQLite FTS5 provides fast full-text search with ranking:
 ```typescript
 import { DatabaseBackend } from '@/core/content-registry/lib/storage/database-backend';
 
-const backend = new DatabaseBackend('./data/app.db');
+const backend = await DatabaseBackend.create('./data/app.db');
 
 // Search agents
 const agents = await backend.searchAgents('supervisor');
@@ -418,7 +426,7 @@ database/
 import { WorkflowLifecycleManager } from '@/mcp/lifecycle/workflow-lifecycle-manager';
 import { initDatabase } from '@/core/database';
 
-const db = initDatabase();
+const db = await initDatabase();
 const lifecycleManager = new WorkflowLifecycleManager(db.connection);
 
 // Create execution

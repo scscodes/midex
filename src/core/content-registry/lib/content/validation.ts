@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ValidationError } from '../../errors';
+import { ValidationError } from '../../errors.js';
 
 /**
  * Shared validation utilities

@@ -1,4 +1,4 @@
-import type { Migration } from './types';
+import type { Migration } from './types.js';
 
 /**
  * Add comprehensive audit logging for content changes

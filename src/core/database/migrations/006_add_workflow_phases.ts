@@ -1,4 +1,4 @@
-import type { Migration } from './types';
+import type { Migration } from './types.js';
 
 /**
  * Add workflow phases column

@@ -1,5 +1,5 @@
-import { createContentFactory } from '../lib/content/factory-generator';
-import { RuleSchema, RuleFrontmatterSchema, type Rule, type RuleFrontmatter } from './schema';
+import { createContentFactory } from '../lib/content/factory-generator.js';
+import { RuleSchema, RuleFrontmatterSchema, type Rule, type RuleFrontmatter } from './schema.js';
 
 /**
  * Rule factory - uses generic factory generator

@@ -1,6 +1,6 @@
-import type { ContentBackend } from '../lib/storage/interface';
-import type { Agent } from './schema';
-import { AgentFactory } from './factory';
+import type { ContentBackend } from '../lib/storage/interface.js';
+import type { Agent } from './schema.js';
+import { AgentFactory } from './factory.js';
 
 /**
  * Agent sync handler

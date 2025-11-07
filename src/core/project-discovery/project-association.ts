@@ -6,7 +6,7 @@
 import type { Database as DB } from 'better-sqlite3';
 import { resolve, basename } from 'path';
 import { existsSync } from 'fs';
-import { detectGitRepository } from './lib/git';
+import { detectGitRepository } from './lib/git.js';
 
 export interface ProjectAssociation {
   id: number;

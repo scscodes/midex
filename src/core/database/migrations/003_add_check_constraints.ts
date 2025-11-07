@@ -1,4 +1,4 @@
-import type { Migration } from './types';
+import type { Migration } from './types.js';
 
 /**
  * Add CHECK constraints matching Zod schema validations

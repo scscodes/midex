@@ -6,7 +6,8 @@
 import type { Database as DB } from 'better-sqlite3';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import Ajv, { type ValidateFunction } from 'ajv';
+import { Ajv } from 'ajv';
+import type { ValidateFunction } from 'ajv';
 
 export type LogLayer = 'orchestrator' | 'workflow' | 'step' | 'agent_task';
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';

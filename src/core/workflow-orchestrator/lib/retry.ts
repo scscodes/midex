@@ -2,9 +2,9 @@
  * Retry and escalation logic for workflow orchestrator
  */
 
-import { OrchestratorConfig } from './config';
-import type { RetryPolicy } from '../../content-registry';
-import { telemetry } from './telemetry';
+import { OrchestratorConfig } from './config.js';
+import type { RetryPolicy } from '../../content-registry/index.js';
+import { telemetry } from './telemetry.js';
 
 export interface RetryResult<T> {
   success: boolean;

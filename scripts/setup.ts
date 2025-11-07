@@ -152,7 +152,7 @@ async function loadContent(backend: string, basePath: string, databasePath: stri
       '../dist/core/content-registry/lib/storage/database-backend.js',
       'content-load'
     );
-    const dbBackend = new DatabaseBackend(databasePath);
+    const dbBackend = await DatabaseBackend.create(databasePath);
     try {
       const [agents, rules, workflows] = await Promise.all([
         dbBackend.listAgents(),
@@ -205,7 +205,7 @@ async function setupDatabase(databasePath: string, basePath: string): Promise<{ 
     '../dist/core/database/index.js',
     'database-setup'
   );
-  const db = initDatabase({ path: databasePath });
+  const db = await initDatabase({ path: databasePath });
   db.close();
 
   if (shouldSeed && existsSync(basePath)) {

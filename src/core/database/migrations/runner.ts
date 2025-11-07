@@ -1,5 +1,5 @@
 import type { Database } from 'better-sqlite3';
-import type { Migration, MigrationRecord, MigrationResult } from './types';
+import type { Migration, MigrationRecord, MigrationResult } from './types.js';
 
 /**
  * Migration runner with auto-discovery and safe execution

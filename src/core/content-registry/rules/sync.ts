@@ -1,6 +1,6 @@
-import type { ContentBackend } from '../lib/storage/interface';
-import type { Rule } from './schema';
-import { RuleFactory } from './factory';
+import type { ContentBackend } from '../lib/storage/interface.js';
+import type { Rule } from './schema.js';
+import { RuleFactory } from './factory.js';
 
 /**
  * Rule sync handler

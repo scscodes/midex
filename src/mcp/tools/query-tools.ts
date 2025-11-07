@@ -9,12 +9,12 @@ import type {
   FindingSeverity,
   Finding,
   QueryFindingsOptions,
-} from '../lifecycle/finding-store';
+} from '../lifecycle/finding-store.js';
 import type {
   WorkflowLifecycleManager,
   WorkflowExecution,
   WorkflowStep,
-} from '../lifecycle/workflow-lifecycle-manager';
+} from '../lifecycle/workflow-lifecycle-manager.js';
 
 export interface QueryFindingsParams extends QueryFindingsOptions {}
 

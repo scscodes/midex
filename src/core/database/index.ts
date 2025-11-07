@@ -1,6 +1,5 @@
 import Database from 'better-sqlite3';
 import { resolve } from 'path';
-import { createRequire } from 'module';
 import type { Database as DB, Statement } from 'better-sqlite3';
 
 export interface DatabaseOptions {
@@ -22,24 +21,61 @@ export class AppDatabase {
   private db: DB;
   private stmtCache: Map<string, Statement> = new Map();
   private _closed = false;
+  private _initialized = false;
 
-  constructor(options: DatabaseOptions = {}) {
+  // Prevent concurrent migrations/initializations for the same DB path
+  private static initializationLocks: Map<string, Promise<void>> = new Map();
+
+  private constructor(db: DB) {
+    this.db = db;
+  }
+
+  static async create(options: DatabaseOptions = {}): Promise<AppDatabase> {
     const dbPath = options.path || resolve(process.cwd(), 'data', 'app.db');
     const dbOptions: { readonly?: boolean } = {};
     if (options.readonly !== undefined) {
       dbOptions.readonly = options.readonly;
     }
 
-    this.db = new Database(dbPath, dbOptions);
+    let instance: AppDatabase | null = null;
+    try {
+      const db = new Database(dbPath, dbOptions);
+      instance = new AppDatabase(db);
 
-    // Configure SQLite for optimal performance and safety
-    if (!options.readonly) {
-      this.configurePragmas();
-    }
+      // Configure SQLite for optimal performance and safety
+      if (!options.readonly) {
+        instance.configurePragmas();
+      }
 
-    // Run migrations if enabled
-    if (options.runMigrations !== false && !options.readonly) {
-      this.applyMigrations();
+      // Run migrations if enabled (serialize per dbPath)
+      if (options.runMigrations !== false && !options.readonly) {
+        const existing = AppDatabase.initializationLocks.get(dbPath);
+        if (existing) {
+          await existing;
+        } else {
+          const lock = (async () => {
+            await instance!.applyMigrations();
+          })();
+          AppDatabase.initializationLocks.set(dbPath, lock);
+          try {
+            await lock;
+          } finally {
+            AppDatabase.initializationLocks.delete(dbPath);
+          }
+        }
+      }
+
+      instance._initialized = true;
+      return instance;
+    } catch (error) {
+      // Ensure we close any opened connection on failure
+      try {
+        instance?.close();
+      } catch {
+        // ignore close errors during init failure
+      }
+      const phase = instance ? 'migration' : 'connection';
+      throw new Error(`AppDatabase initialization failed during ${phase}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -73,40 +109,32 @@ export class AppDatabase {
   /**
    * Auto-discover and apply pending migrations
    */
-  private applyMigrations(): void {
-    try {
-      // Use createRequire for ESM compatibility
-      const require = createRequire(import.meta.url);
+  private async applyMigrations(): Promise<void> {
+    // Dynamic import for ESM compatibility
+    const { MigrationRunner } = await import('./migrations/runner.js');
+    const { discoverMigrations } = await import('./migrations/discovery.js');
 
-      const { MigrationRunner } = require('./migrations/runner.js');
-      const { discoverMigrationsSync } = require('./migrations/discovery.js');
+    const runner = new MigrationRunner(this.db);
+    const migrations = await discoverMigrations();
 
-      const runner = new MigrationRunner(this.db);
-      const migrations = discoverMigrationsSync();
+    const results = runner.runMigrations(migrations, {
+      allowDestructive: false, // Only auto-apply non-destructive
+    });
 
-      const results = runner.runMigrations(migrations, {
-        allowDestructive: false, // Only auto-apply non-destructive
+    const applied = results.filter((r: { status: string }) => r.status === 'applied');
+    const blocked = results.filter((r: { status: string }) => r.status === 'blocked');
+
+    if (applied.length > 0) {
+      console.log(`✓ Applied ${applied.length} migration(s)`);
+    }
+
+    if (blocked.length > 0) {
+      console.warn(
+        `⚠ ${blocked.length} migration(s) blocked (destructive changes require manual approval)`
+      );
+      blocked.forEach((r: { version: number; name: string; reason?: string }) => {
+        console.warn(`  - v${r.version}: ${r.name} (${r.reason})`);
       });
-
-      const applied = results.filter((r: { status: string }) => r.status === 'applied');
-      const blocked = results.filter((r: { status: string }) => r.status === 'blocked');
-
-      if (applied.length > 0) {
-        console.log(`✓ Applied ${applied.length} migration(s)`);
-      }
-
-      if (blocked.length > 0) {
-        console.warn(
-          `⚠ ${blocked.length} migration(s) blocked (destructive changes require manual approval)`
-        );
-        blocked.forEach((r: { version: number; name: string; reason?: string }) => {
-          console.warn(`  - v${r.version}: ${r.name} (${r.reason})`);
-        });
-      }
-    } catch (error) {
-      // If migrations fail, log but don't crash
-      // This allows the app to start even if migrations have issues
-      console.error('Failed to run migrations:', error);
     }
   }
 
@@ -115,6 +143,9 @@ export class AppDatabase {
    */
   get connection(): DB {
     this.checkClosed();
+    if (!this._initialized) {
+      throw new Error('Database not initialized');
+    }
     return this.db;
   }
 
@@ -212,7 +243,7 @@ export class AppDatabase {
  * @param options - Database configuration
  * @returns AppDatabase instance
  */
-export function initDatabase(options?: DatabaseOptions): AppDatabase {
-  return new AppDatabase(options);
+export async function initDatabase(options?: DatabaseOptions): Promise<AppDatabase> {
+  return AppDatabase.create(options);
 }
 

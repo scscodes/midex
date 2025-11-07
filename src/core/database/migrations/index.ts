@@ -2,20 +2,20 @@
  * Migration system public API
  */
 
-export type { Migration, MigrationRecord, MigrationResult } from './types';
-export { MigrationRunner } from './runner';
-export { discoverMigrations, discoverMigrationsSync } from './discovery';
+export type { Migration, MigrationRecord, MigrationResult } from './types.js';
+export { MigrationRunner } from './runner.js';
+export { discoverMigrations } from './discovery.js';
 
 /**
  * Example: Running migrations with auto-discovery
  *
  * ```typescript
- * import { AppDatabase } from '@/core/database';
- * import { MigrationRunner, discoverMigrationsSync } from '@/core/database/migrations';
+ * import { initDatabase } from '@/core/database';
+ * import { MigrationRunner, discoverMigrations } from '@/core/database/migrations';
  *
- * const db = new AppDatabase({ path: './data/app.db' });
+ * const db = await initDatabase({ path: './data/app.db' });
  * const runner = new MigrationRunner(db.connection);
- * const migrations = discoverMigrationsSync();
+ * const migrations = await discoverMigrations();
  *
  * const results = runner.runMigrations(migrations, {
  *   allowDestructive: false // Auto-apply only non-destructive

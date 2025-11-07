@@ -9,9 +9,9 @@ import type {
   StepExecutionState,
   WorkflowExecution,
   WorkflowStep,
-} from '../lifecycle/workflow-lifecycle-manager';
-import type { ExecutionLogger } from '../lifecycle/execution-logger';
-import type { ContentRegistry } from '../../core/content-registry';
+} from '../lifecycle/workflow-lifecycle-manager.js';
+import type { ExecutionLogger } from '../lifecycle/execution-logger.js';
+import type { ContentRegistry } from '../../core/content-registry/index.js';
 
 export interface StartExecutionParams {
   workflowName: string;

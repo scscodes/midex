@@ -3,16 +3,16 @@
  * Workflows can be invoked by orchestrator or agents
  */
 
-import type { ExecutableWorkflow } from '../../compiler';
-import type { StepDefinition } from '../../../content-registry/workflows/execution-schema';
-import type { WorkflowInput, WorkflowOutput, StepInput, StepOutput } from '../../schemas';
-import { StepInputSchema, StepOutputSchema } from '../../schemas';
-import { StepExecutor } from './step-executor';
-import { telemetry } from '../telemetry';
-import { WorkflowError } from '../../errors';
-import { shouldEscalate } from '../retry';
-import { OrchestratorConfig } from '../config';
-import { executeWithBoundary } from '../execution-boundary';
+import type { ExecutableWorkflow } from '../../compiler/index.js';
+import type { StepDefinition } from '../../../content-registry/workflows/execution-schema.js';
+import type { WorkflowInput, WorkflowOutput, StepInput, StepOutput } from '../../schemas.js';
+import { StepInputSchema, StepOutputSchema } from '../../schemas.js';
+import { StepExecutor } from './step-executor.js';
+import { telemetry } from '../telemetry.js';
+import { WorkflowError } from '../../errors.js';
+import { shouldEscalate } from '../retry.js';
+import { OrchestratorConfig } from '../config.js';
+import { executeWithBoundary } from '../execution-boundary.js';
 
 export class WorkflowExecutor {
   constructor(

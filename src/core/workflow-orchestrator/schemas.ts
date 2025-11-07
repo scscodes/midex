@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { TriggersSchema } from '../content-registry/lib/shared-schemas';
+import { TriggersSchema } from '../content-registry/lib/shared-schemas.js';
 
 // Shared schemas
 export const ArtifactSchema = z.object({

@@ -36,8 +36,8 @@ const SERVER_VERSION = '0.1.0';
  */
 async function main() {
   // Initialize database and content registry
-  const db = initDatabase({ runMigrations: true });
-  const registry = ContentRegistry.init({ backend: 'database' });
+  const db = await initDatabase({ runMigrations: true });
+  const registry = await ContentRegistry.init({ backend: 'database' });
 
   // Initialize lifecycle managers
   const lifecycleManager = new WorkflowLifecycleManager(db.connection);

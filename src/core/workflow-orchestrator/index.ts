@@ -5,24 +5,24 @@
  * Implements layered architecture: Orchestrator → Workflows → Steps → Agent Tasks
  */
 
-import type { WorkflowInput, WorkflowOutput } from './schemas';
-import { WorkflowInputSchema, WorkflowOutputSchema } from './schemas';
-import type { Workflow } from '../content-registry';
-import type { ExecutableWorkflow } from './compiler';
-import { compileWorkflow } from './compiler';
+import type { WorkflowInput, WorkflowOutput } from './schemas.js';
+import { WorkflowInputSchema, WorkflowOutputSchema } from './schemas.js';
+import type { Workflow } from '../content-registry/index.js';
+import type { ExecutableWorkflow } from './compiler/index.js';
+import { compileWorkflow } from './compiler/index.js';
 
 // Generate unique IDs
 function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
-import { WorkflowExecutor } from './lib/executors/workflow-executor';
-import { StepExecutor } from './lib/executors/step-executor';
-import { AgentTaskExecutor } from './lib/executors/task-executor';
-import { StateManager } from './lib/state';
-import { telemetry } from './lib/telemetry';
-import { WorkflowError, ValidationError } from './errors';
-import { OrchestratorConfig } from './lib/config';
-import { executeWithBoundary } from './lib/execution-boundary';
+import { WorkflowExecutor } from './lib/executors/workflow-executor.js';
+import { StepExecutor } from './lib/executors/step-executor.js';
+import { AgentTaskExecutor } from './lib/executors/task-executor.js';
+import { StateManager } from './lib/state.js';
+import { telemetry } from './lib/telemetry.js';
+import { WorkflowError, ValidationError } from './errors.js';
+import { OrchestratorConfig } from './lib/config.js';
+import { executeWithBoundary } from './lib/execution-boundary.js';
 
 export interface OrchestrationOptions {
   workflowId?: string;
@@ -142,7 +142,7 @@ export class WorkflowOrchestrator {
     try {
       // Load workflow from ContentRegistry
       const { ContentRegistry } = await import('../content-registry/index.js');
-      const registry = ContentRegistry.init();
+      const registry = await ContentRegistry.init();
 
       const workflow = await registry.getWorkflow(name);
       return workflow;
@@ -177,8 +177,8 @@ export class WorkflowOrchestrator {
 }
 
 // Re-export public types and schemas
-export * from './errors';
-export * from './schemas';
-export * from './lib/execution-state';
-export type { WorkflowInput, WorkflowOutput, StepInput, StepOutput, AgentInput, AgentOutput } from './schemas';
-export type { Workflow, StepDefinition, ExecutionMode, RetryPolicy, AgentTaskDefinition } from '../content-registry';
+export * from './errors.js';
+export * from './schemas.js';
+export * from './lib/execution-state.js';
+export type { WorkflowInput, WorkflowOutput, StepInput, StepOutput, AgentInput, AgentOutput } from './schemas.js';
+export type { Workflow, StepDefinition, ExecutionMode, RetryPolicy, AgentTaskDefinition } from '../content-registry/index.js';

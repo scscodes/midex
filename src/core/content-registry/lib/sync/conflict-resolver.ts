@@ -1,9 +1,9 @@
 import { stat } from 'fs/promises';
 import { resolve } from 'path';
-import type { Agent } from '../../agents/schema';
-import type { Rule } from '../../rules/schema';
-import type { Workflow } from '../../workflows/schema';
-import { computeContentHash } from '../content/hash';
+import type { Agent } from '../../agents/schema.js';
+import type { Rule } from '../../rules/schema.js';
+import type { Workflow } from '../../workflows/schema.js';
+import { computeContentHash } from '../content/hash.js';
 
 export interface ConflictResolution {
   winner: 'filesystem' | 'database';

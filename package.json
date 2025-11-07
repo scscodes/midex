@@ -11,7 +11,8 @@
     "dev": "tsc --watch",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "mcp:start": "node dist/mcp/server.js"
   },
   "keywords": [],
   "author": "",

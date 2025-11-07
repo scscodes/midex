@@ -309,7 +309,7 @@ For the current release (v0.1.0), workflow execution lifecycle is managed by the
 import { WorkflowLifecycleManager } from '@/mcp/lifecycle/workflow-lifecycle-manager';
 import { initDatabase } from '@/core/database';
 
-const db = initDatabase();
+const db = await initDatabase();
 const lifecycleManager = new WorkflowLifecycleManager(db.connection);
 
 // Create and manage workflow execution

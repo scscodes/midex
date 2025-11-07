@@ -3,7 +3,7 @@
  * Exports all MCP tool implementations
  */
 
-export * from './content-provider';
-export * from './lifecycle-tools';
-export * from './logging-tools';
-export * from './query-tools';
+export * from './content-provider.js';
+export * from './lifecycle-tools.js';
+export * from './logging-tools.js';
+export * from './query-tools.js';

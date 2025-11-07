@@ -1,12 +1,12 @@
 import { resolve, dirname } from 'path';
 import { existsSync, statSync } from 'fs';
 import { readdir } from 'fs/promises';
-import { normalizePath } from './lib/path';
-import { detectGitRepository } from './lib/git';
-import { resolveConfig, type ResolvedDiscoveryConfig } from './lib/config';
-import { DiscoveryOptionsSchema } from './schemas';
-import type { DiscoveryOptions, DiscoveryResult, ProjectInfo } from './schemas';
-import { PathNotFoundError, InvalidPathError } from './errors';
+import { normalizePath } from './lib/path.js';
+import { detectGitRepository } from './lib/git.js';
+import { resolveConfig, type ResolvedDiscoveryConfig } from './lib/config.js';
+import { DiscoveryOptionsSchema } from './schemas.js';
+import type { DiscoveryOptions, DiscoveryResult, ProjectInfo } from './schemas.js';
+import { PathNotFoundError, InvalidPathError } from './errors.js';
 
 
 /**
@@ -172,8 +172,8 @@ export class ProjectDiscovery {
 }
 
 // Re-export public types and schemas
-export * from './errors';
-export * from './schemas';
-export * from './project-association';
-export type { DiscoveryMethod, DiscoveryOptions, DiscoveryResult, ProjectInfo } from './schemas';
+export * from './errors.js';
+export * from './schemas.js';
+export * from './project-association.js';
+export type { DiscoveryMethod, DiscoveryOptions, DiscoveryResult, ProjectInfo } from './schemas.js';
 

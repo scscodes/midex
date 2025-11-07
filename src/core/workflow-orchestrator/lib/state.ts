@@ -3,8 +3,8 @@
  * Provides stable start, progression, and completion tracking
  */
 
-import type { WorkflowState, StepState, AgentTaskState } from './execution-state';
-import type { WorkflowOutput, StepOutput, AgentOutput } from '../schemas';
+import type { WorkflowState, StepState, AgentTaskState } from './execution-state.js';
+import type { WorkflowOutput, StepOutput, AgentOutput } from '../schemas.js';
 
 export interface WorkflowExecutionState {
   workflowId: string;

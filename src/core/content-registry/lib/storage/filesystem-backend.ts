@@ -1,12 +1,12 @@
-import type { ContentBackend } from './interface';
-import { AgentFactory } from '../../agents';
-import { RuleFactory } from '../../rules';
-import { WorkflowFactory } from '../../workflows';
-import type { Agent } from '../../agents/schema';
-import type { Rule } from '../../rules/schema';
-import type { Workflow } from '../../workflows/schema';
-import { computeFileHash } from '../content/hash';
-import { pathJoin } from '../path';
+import type { ContentBackend } from './interface.js';
+import { AgentFactory } from '../../agents/index.js';
+import { RuleFactory } from '../../rules/index.js';
+import { WorkflowFactory } from '../../workflows/index.js';
+import type { Agent } from '../../agents/schema.js';
+import type { Rule } from '../../rules/schema.js';
+import type { Workflow } from '../../workflows/schema.js';
+import { computeFileHash } from '../content/hash.js';
+import { pathJoin } from '../path.js';
 
 export class FilesystemBackend implements ContentBackend {
   constructor(private readonly basePath: string) {}

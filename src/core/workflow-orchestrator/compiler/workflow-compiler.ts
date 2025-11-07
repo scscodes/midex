@@ -5,10 +5,10 @@
  * Templates define WHAT and WHO, compiler adds HOW (retry, parallelism, timeout).
  */
 
-import type { Workflow, WorkflowPhase } from '../../content-registry/workflows/schema';
-import type { StepDefinition, AgentTaskDefinition } from '../../content-registry/workflows/execution-schema';
-import type { ExecutionPolicy } from '../../config/execution-policies';
-import { getExecutionPolicy } from '../../config/execution-policies';
+import type { Workflow, WorkflowPhase } from '../../content-registry/workflows/schema.js';
+import type { StepDefinition, AgentTaskDefinition } from '../../content-registry/workflows/execution-schema.js';
+import type { ExecutionPolicy } from '../../config/execution-policies.js';
+import { getExecutionPolicy } from '../../config/execution-policies.js';
 
 /**
  * Executable workflow - compiled from template + policy

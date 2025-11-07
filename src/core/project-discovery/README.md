@@ -71,7 +71,7 @@ midex includes a **ProjectAssociationManager** for tracking discovered projects 
 import { ProjectAssociationManager } from '@/core/project-discovery/project-association';
 import { initDatabase } from '@/core/database';
 
-const db = initDatabase();
+const db = await initDatabase();
 const projectManager = new ProjectAssociationManager(db.connection);
 
 // Auto-detect and create project association from current directory

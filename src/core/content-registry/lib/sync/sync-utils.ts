@@ -1,5 +1,5 @@
-import type { ContentBackend } from '../storage/interface';
-import { resolveConflict, hasChanged, type DatabaseItemWithTimestamp } from './conflict-resolver';
+import type { ContentBackend } from '../storage/interface.js';
+import { resolveConflict, hasChanged, type DatabaseItemWithTimestamp } from './conflict-resolver.js';
 
 export interface SyncStats {
   synced: number;

@@ -1,5 +1,5 @@
-import { createContentFactory } from '../lib/content/factory-generator';
-import { WorkflowSchema, WorkflowFrontmatterSchema, type Workflow, type WorkflowFrontmatter } from './schema';
+import { createContentFactory } from '../lib/content/factory-generator.js';
+import { WorkflowSchema, WorkflowFrontmatterSchema, type Workflow, type WorkflowFrontmatter } from './schema.js';
 
 /**
  * Workflow factory - uses generic factory generator

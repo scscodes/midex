@@ -3,8 +3,8 @@
  * Prevents workflows/steps/tasks from hanging indefinitely
  */
 
-import { OrchestratorConfig } from './config';
-import { WorkflowError, StepError, AgentTaskError } from '../errors';
+import { OrchestratorConfig } from './config.js';
+import { WorkflowError, StepError, AgentTaskError } from '../errors.js';
 
 /**
  * Execute function with timeout

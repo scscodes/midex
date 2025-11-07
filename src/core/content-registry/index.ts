@@ -1,10 +1,10 @@
-import { resolveConfig } from './lib/config';
-import { FilesystemBackend } from './lib/storage/filesystem-backend';
-import { DatabaseBackend } from './lib/storage/database-backend';
-import type { ContentBackend } from './lib/storage/interface';
-import type { Agent } from './agents/schema';
-import type { Rule } from './rules/schema';
-import type { Workflow } from './workflows/schema';
+import { resolveConfig } from './lib/config.js';
+import { FilesystemBackend } from './lib/storage/filesystem-backend.js';
+import { DatabaseBackend } from './lib/storage/database-backend.js';
+import type { ContentBackend } from './lib/storage/interface.js';
+import type { Agent } from './agents/schema.js';
+import type { Rule } from './rules/schema.js';
+import type { Workflow } from './workflows/schema.js';
 
 /**
  * Content Registry configuration options
@@ -36,11 +36,11 @@ export class ContentRegistry {
   /**
    * Initialize content registry with specified backend
    */
-  static init(options?: ContentRegistryOptions): ContentRegistry {
+  static async init(options?: ContentRegistryOptions): Promise<ContentRegistry> {
     const config = resolveConfig(options);
 
     if (config.backend === 'database') {
-      const backend = new DatabaseBackend(config.databasePath!);
+      const backend = await DatabaseBackend.create(config.databasePath!);
       return new ContentRegistry(backend);
     }
 
@@ -117,15 +117,15 @@ export class ContentRegistry {
 }
 
 // Public exports - only what consumers need
-export type { Agent } from './agents/schema';
-export type { Rule } from './rules/schema';
-export type { Workflow } from './workflows/schema';
+export type { Agent } from './agents/schema.js';
+export type { Rule } from './rules/schema.js';
+export type { Workflow } from './workflows/schema.js';
 export type {
   ExecutionMode,
   RetryPolicy,
   AgentTaskDefinition,
   StepDefinition
-} from './workflows/execution-schema';
-export type { Triggers } from './lib/shared-schemas';
-export * from './errors';
-export * from './lib/sync';
+} from './workflows/execution-schema.js';
+export type { Triggers } from './lib/shared-schemas.js';
+export * from './errors.js';
+export * from './lib/sync/index.js';

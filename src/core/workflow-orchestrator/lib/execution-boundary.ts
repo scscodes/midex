@@ -9,11 +9,11 @@
  */
 
 import { z } from 'zod';
-import type { RetryPolicy } from '../../content-registry';
-import { OrchestratorConfig } from './config';
-import { validateContract } from './validation';
-import { telemetry } from './telemetry';
-import { WorkflowError, StepError, AgentTaskError } from '../errors';
+import type { RetryPolicy } from '../../content-registry/index.js';
+import { OrchestratorConfig } from './config.js';
+import { validateContract } from './validation.js';
+import { telemetry } from './telemetry.js';
+import { WorkflowError, StepError, AgentTaskError } from '../errors.js';
 
 export interface ExecutionOptions<TInput, TOutput> {
   input: TInput;

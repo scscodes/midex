@@ -3,7 +3,7 @@
  * Exports all lifecycle management components
  */
 
-export * from './workflow-lifecycle-manager';
-export * from './execution-logger';
-export * from './artifact-store';
-export * from './finding-store';
+export * from './workflow-lifecycle-manager.js';
+export * from './execution-logger.js';
+export * from './artifact-store.js';
+export * from './finding-store.js';

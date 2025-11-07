@@ -1,3 +1,3 @@
-export * from './schema';
-export * from './factory';
-export * from './sync';
+export * from './schema.js';
+export * from './factory.js';
+export * from './sync.js';

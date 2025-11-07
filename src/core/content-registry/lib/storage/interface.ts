@@ -1,6 +1,6 @@
-import type { Agent } from '../../agents/schema';
-import type { Rule } from '../../rules/schema';
-import type { Workflow } from '../../workflows/schema';
+import type { Agent } from '../../agents/schema.js';
+import type { Rule } from '../../rules/schema.js';
+import type { Workflow } from '../../workflows/schema.js';
 
 /**
  * Content backend interface - abstraction for storage backends

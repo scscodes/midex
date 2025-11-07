@@ -1,8 +1,8 @@
-import { FilesystemBackend } from '../storage/filesystem-backend';
-import { DatabaseBackend } from '../storage/database-backend';
-import type { Agent } from '../../agents/schema';
-import type { Rule } from '../../rules/schema';
-import type { Workflow } from '../../workflows/schema';
+import { FilesystemBackend } from '../storage/filesystem-backend.js';
+import { DatabaseBackend } from '../storage/database-backend.js';
+import type { Agent } from '../../agents/schema.js';
+import type { Rule } from '../../rules/schema.js';
+import type { Workflow } from '../../workflows/schema.js';
 
 export interface SeedOptions {
   basePath: string;
@@ -21,7 +21,7 @@ export interface SeedResult {
  */
 export async function seedFromFilesystem(options: SeedOptions): Promise<SeedResult> {
   const fsBackend = new FilesystemBackend(options.basePath);
-  const dbBackend = new DatabaseBackend(options.databasePath);
+  const dbBackend = await DatabaseBackend.create(options.databasePath);
 
   const result: SeedResult = {
     agents: { seeded: 0, errors: 0 },

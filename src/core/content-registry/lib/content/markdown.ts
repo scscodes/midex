@@ -2,7 +2,7 @@ import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
 import parseFrontmatter from 'gray-matter';
-import { NotFoundError } from '../../errors';
+import { NotFoundError } from '../../errors.js';
 
 /**
  * Shared markdown parsing utilities

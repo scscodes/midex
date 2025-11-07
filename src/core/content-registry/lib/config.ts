@@ -1,4 +1,4 @@
-import type { ContentRegistryOptions } from '../index';
+import type { ContentRegistryOptions } from '../index.js';
 
 export interface ResolvedConfig {
   backend: 'filesystem' | 'database';

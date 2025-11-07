@@ -1,9 +1,9 @@
-import { DatabaseBackend } from '../storage/database-backend';
-import { seedFromFilesystem } from './seeder';
-import { AgentSync } from '../../agents';
-import { RuleSync } from '../../rules';
-import { WorkflowSync } from '../../workflows';
-import { syncContentType } from './sync-utils';
+import { DatabaseBackend } from '../storage/database-backend.js';
+import { seedFromFilesystem } from './seeder.js';
+import { AgentSync } from '../../agents/index.js';
+import { RuleSync } from '../../rules/index.js';
+import { WorkflowSync } from '../../workflows/index.js';
+import { syncContentType } from './sync-utils.js';
 
 export type SyncDirection = 'seed' | 'bidirectional';
 
@@ -42,7 +42,7 @@ export async function syncContentRegistry(options: SyncOptions): Promise<SyncRes
   }
 
   // Bidirectional sync
-  const dbBackend = new DatabaseBackend(options.databasePath);
+  const dbBackend = await DatabaseBackend.create(options.databasePath);
 
   const result: SyncResult = {
     agents: { synced: 0, conflicts: 0, errors: 0 },

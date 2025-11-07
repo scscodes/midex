@@ -1,4 +1,4 @@
-import type { DiscoveryOptions } from '../schemas';
+import type { DiscoveryOptions } from '../schemas.js';
 
 export interface ResolvedDiscoveryConfig {
   method: 'autodiscover' | 'manual';

@@ -4,14 +4,14 @@
  */
 
 import { z } from 'zod';
-import type { StepDefinition, AgentTaskDefinition } from '../../../content-registry';
-import type { StepInput, StepOutput, AgentOutput } from '../../schemas';
-import { AgentOutputSchema } from '../../schemas';
-import { AgentTaskExecutor } from './task-executor';
-import { telemetry } from '../telemetry';
-import { StepError } from '../../errors';
-import { executeWithBoundary } from '../execution-boundary';
-import { OrchestratorConfig } from '../config';
+import type { StepDefinition, AgentTaskDefinition } from '../../../content-registry/index.js';
+import type { StepInput, StepOutput, AgentOutput } from '../../schemas.js';
+import { AgentOutputSchema } from '../../schemas.js';
+import { AgentTaskExecutor } from './task-executor.js';
+import { telemetry } from '../telemetry.js';
+import { StepError } from '../../errors.js';
+import { executeWithBoundary } from '../execution-boundary.js';
+import { OrchestratorConfig } from '../config.js';
 
 export class StepExecutor {
   constructor(private readonly agentTaskExecutor: AgentTaskExecutor) {}

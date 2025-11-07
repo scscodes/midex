@@ -1,10 +1,11 @@
-import type { ContentBackend } from './interface';
-import type { Agent } from '../../agents/schema';
-import type { Rule } from '../../rules/schema';
-import type { Workflow } from '../../workflows/schema';
-import { NotFoundError } from '../../errors';
-import { initDatabase } from '../../../database';
-import { computeContentHash } from '../content/hash';
+import type { ContentBackend } from './interface.js';
+import type { Agent } from '../../agents/schema.js';
+import type { Rule } from '../../rules/schema.js';
+import type { Workflow } from '../../workflows/schema.js';
+import { NotFoundError } from '../../errors.js';
+import { initDatabase } from '../../../database/index.js';
+import type { AppDatabase } from '../../../database/index.js';
+import { computeContentHash } from '../content/hash.js';
 
 interface DbAgent {
   name: string;
@@ -85,11 +86,15 @@ function dbWorkflowToWorkflow(row: DbWorkflow): Workflow {
 }
 
 export class DatabaseBackend implements ContentBackend {
-  private db;
+  private db: AppDatabase;
 
-  constructor(databasePath: string) {
-    this.db = initDatabase({ path: databasePath });
-    // Schema is now managed by migrations in AppDatabase
+  private constructor(db: AppDatabase) {
+    this.db = db;
+  }
+
+  static async create(databasePath: string): Promise<DatabaseBackend> {
+    const db = await initDatabase({ path: databasePath });
+    return new DatabaseBackend(db);
   }
 
   // Agents

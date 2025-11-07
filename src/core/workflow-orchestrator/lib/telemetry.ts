@@ -3,8 +3,8 @@
  * Provides visibility into execution at each layer
  */
 
-import type { TelemetryEvent } from './execution-state';
-import { OrchestratorConfig } from './config';
+import type { TelemetryEvent } from './execution-state.js';
+import { OrchestratorConfig } from './config.js';
 
 export interface TelemetryLogger {
   log(event: TelemetryEvent): void;

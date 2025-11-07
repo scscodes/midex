@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, beforeAll } from 'vitest';
 import { z } from 'zod';
 import { ContentRegistry } from './index';
 import { NotFoundError } from './errors';
@@ -14,7 +14,10 @@ import { existsSync } from 'fs';
 import { resolve } from 'path';
 
 describe('ContentRegistry', () => {
-  const registry = ContentRegistry.init({ backend: 'filesystem', basePath: '.mide-lite' });
+  let registry: Awaited<ReturnType<typeof ContentRegistry.init>>;
+  beforeAll(async () => {
+    registry = await ContentRegistry.init({ backend: 'filesystem', basePath: '.mide-lite' });
+  });
 
   describe('Read Operations', () => {
     it('should load agent by name', async () => {

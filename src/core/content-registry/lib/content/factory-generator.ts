@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { readdir, writeFile } from 'fs/promises';
-import { readMarkdown } from './markdown';
-import { pathJoin, ensureDir } from '../path';
-import { computeFileHash } from './hash';
-import { validateSchema } from './validation';
+import { readMarkdown } from './markdown.js';
+import { pathJoin, ensureDir } from '../path.js';
+import { computeFileHash } from './hash.js';
+import { validateSchema } from './validation.js';
 
 /**
  * Configuration for generating a content factory

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TriggersSchema } from '../lib/shared-schemas';
+import { TriggersSchema } from '../lib/shared-schemas.js';
 
 /**
  * Workflow phase schema - design-time phase declaration

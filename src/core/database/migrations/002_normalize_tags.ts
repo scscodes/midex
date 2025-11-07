@@ -1,4 +1,4 @@
-import type { Migration } from './types';
+import type { Migration } from './types.js';
 
 /**
  * Normalize tag storage from JSON columns to relational tables

@@ -3,8 +3,8 @@
  * Provides discovery and retrieval of workflows, agents, rules, and project context
  */
 
-import type { ContentRegistry } from '../../core/content-registry';
-import type { Agent, Rule, Workflow } from '../../core/content-registry';
+import type { ContentRegistry } from '../../core/content-registry/index.js';
+import type { Agent, Rule, Workflow } from '../../core/content-registry/index.js';
 import type { Database as DB } from 'better-sqlite3';
 
 export type DetailLevel = 'name' | 'summary' | 'full';

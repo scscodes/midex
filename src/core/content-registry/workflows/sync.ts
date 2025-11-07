@@ -1,6 +1,6 @@
-import type { ContentBackend } from '../lib/storage/interface';
-import type { Workflow } from './schema';
-import { WorkflowFactory } from './factory';
+import type { ContentBackend } from '../lib/storage/interface.js';
+import type { Workflow } from './schema.js';
+import { WorkflowFactory } from './factory.js';
 
 /**
  * Workflow sync handler

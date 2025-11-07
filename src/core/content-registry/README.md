@@ -9,22 +9,27 @@ Unified content management system for agents, rules, and workflows with dual-mod
 ```typescript
 import { ContentRegistry } from '@/core/content-registry';
 
-// Lite mode (filesystem)
-const registry = ContentRegistry.init({ backend: 'filesystem' });
+async function main() {
+  // Lite mode (filesystem)
+  const fsRegistry = await ContentRegistry.init({ backend: 'filesystem' });
 
-// Standard mode (database)
-const registry = ContentRegistry.init({
-  backend: 'database',
-  databasePath: './data/app.db'
-});
+  // Standard mode (database)
+  const registry = await ContentRegistry.init({
+    backend: 'database',
+    databasePath: './data/app.db'
+  });
 
-// Access content
-const agent = await registry.getAgent('supervisor');
-const rules = await registry.listRules();
-const workflows = await registry.listWorkflows();
+  // Access content
+  const agent = await registry.getAgent('supervisor');
+  const rules = await registry.listRules();
+  const workflows = await registry.listWorkflows();
 
-// Don't forget to close when done
-registry.close();
+  // Don't forget to close when done
+  registry.close();
+  fsRegistry.close();
+}
+
+main();
 ```
 
 ### Finding Workflows
@@ -416,7 +421,7 @@ npm test
 Always close the registry when done to release resources:
 
 ```typescript
-const registry = ContentRegistry.init({ backend: 'database' });
+const registry = await ContentRegistry.init({ backend: 'database' });
 try {
   // Use registry
 } finally {

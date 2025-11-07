@@ -1,5 +1,5 @@
-import { createContentFactory } from '../lib/content/factory-generator';
-import { AgentSchema, AgentFrontmatterSchema, type Agent, type AgentFrontmatter } from './schema';
+import { createContentFactory } from '../lib/content/factory-generator.js';
+import { AgentSchema, AgentFrontmatterSchema, type Agent, type AgentFrontmatter } from './schema.js';
 
 /**
  * Agent factory - uses generic factory generator
