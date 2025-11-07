@@ -46,7 +46,7 @@ export class ExecutionLogger {
     private db: DB,
     private contractsPath: string = resolve(process.cwd(), '.mide-lite', 'contracts')
   ) {
-    this.ajv = new Ajv({ allErrors: true, strict: false });
+    this.ajv = new Ajv({ allErrors: true, strict: false, validateSchema: false });
     this.loadContractSchemas();
   }
 

@@ -332,7 +332,7 @@ export class WorkflowLifecycleManager {
       WHERE state = 'running'
         AND timeout_ms IS NOT NULL
         AND started_at IS NOT NULL
-        AND (strftime('%s', 'now') - strftime('%s', started_at)) * 1000 > timeout_ms
+        AND (julianday('now') - julianday(started_at)) * 86400.0 * 1000.0 > timeout_ms
     `);
 
     const rows = stmt.all() as any[];

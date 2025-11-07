@@ -151,8 +151,8 @@ export class FindingStore {
 
     // Full-text search using FTS5
     if (options.searchText) {
-      query += ` AND id IN (
-        SELECT finding_id FROM findings_fts
+      query += ` AND rowid IN (
+        SELECT rowid FROM findings_fts
         WHERE findings_fts MATCH ?
       )`;
       params.push(options.searchText);
@@ -220,8 +220,8 @@ export class FindingStore {
     }
 
     if (options?.searchText) {
-      query += ` AND id IN (
-        SELECT finding_id FROM findings_fts
+      query += ` AND rowid IN (
+        SELECT rowid FROM findings_fts
         WHERE findings_fts MATCH ?
       )`;
       params.push(options.searchText);
