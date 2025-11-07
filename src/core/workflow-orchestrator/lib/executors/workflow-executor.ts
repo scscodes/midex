@@ -141,10 +141,15 @@ export class WorkflowExecutor {
     stepId: string
   ): Promise<StepOutput> {
     return executeWithBoundary(
-      (validatedInput) => this.stepExecutor.execute(stepDef, validatedInput, {
-        workflowId: context.workflowId,
-        stepId,
-      }),
+      (validatedInput) => this.stepExecutor.execute(
+        stepDef,
+        validatedInput,
+        {
+          workflowId: context.workflowId,
+          stepId,
+        },
+        workflow.policy.timeout.perStepMs
+      ),
       {
         input: stepInput,
         inputSchema: StepInputSchema,

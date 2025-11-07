@@ -11,7 +11,6 @@ import { AgentTaskExecutor } from './task-executor.js';
 import { telemetry } from '../telemetry.js';
 import { StepError } from '../../errors.js';
 import { executeWithBoundary } from '../execution-boundary.js';
-import { OrchestratorConfig } from '../config.js';
 
 export class StepExecutor {
   constructor(private readonly agentTaskExecutor: AgentTaskExecutor) {}
@@ -22,7 +21,8 @@ export class StepExecutor {
   async execute(
     step: StepDefinition,
     input: StepInput,
-    context: { workflowId: string; stepId: string }
+    context: { workflowId: string; stepId: string },
+    taskTimeoutMs: number
   ): Promise<StepOutput> {
     telemetry.stepStarted(context.workflowId, context.stepId, step.name);
 
@@ -31,7 +31,7 @@ export class StepExecutor {
     try {
       // Execute tasks based on mode
       const mode = step.mode || 'sequential';
-      const taskResults = await this.executeTasks(step, input, context, mode);
+      const taskResults = await this.executeTasks(step, input, context, mode, taskTimeoutMs);
 
       // Aggregate task outputs into step output
       const output = this.aggregateStepOutput(taskResults, input);
@@ -53,7 +53,8 @@ export class StepExecutor {
     step: StepDefinition,
     input: StepInput,
     context: { workflowId: string; stepId: string },
-    mode: 'sequential' | 'parallel' | 'conditional'
+    mode: 'sequential' | 'parallel' | 'conditional',
+    taskTimeoutMs: number
   ): Promise<AgentOutput[]> {
     const tasks = step.tasks || [];
     const results: AgentOutput[] = [];
@@ -69,7 +70,7 @@ export class StepExecutor {
             input: task,
             inputSchema: z.any(), // Task definition not a contract
             outputSchema: AgentOutputSchema,
-            timeoutMs: OrchestratorConfig.agentTaskTimeoutMs,
+            timeoutMs: taskTimeoutMs,
             context: {
               layer: 'task',
               workflowId: context.workflowId,
@@ -95,7 +96,7 @@ export class StepExecutor {
           input: task,
           inputSchema: z.any(), // Task definition not a contract
           outputSchema: AgentOutputSchema,
-          timeoutMs: OrchestratorConfig.agentTaskTimeoutMs,
+          timeoutMs: taskTimeoutMs,
           context: {
             layer: 'task',
             workflowId: context.workflowId,
