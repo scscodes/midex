@@ -10,6 +10,8 @@ import type {
   WorkflowExecution,
   WorkflowStep,
 } from '../lifecycle/workflow-lifecycle-manager';
+import type { ExecutionLogger } from '../lifecycle/execution-logger';
+import type { ContentRegistry } from '../../core/content-registry';
 
 export interface StartExecutionParams {
   workflowName: string;
@@ -42,22 +44,53 @@ export interface ResumeExecutionParams {
   executionId: string;
 }
 
+export interface StartExecutionResponse extends WorkflowExecution {
+  phases?: Array<{
+    phase: string;
+    agent: string;
+    description: string;
+    dependsOn: string[];
+    allowParallel: boolean;
+  }>;
+}
+
 /**
  * Lifecycle Tools for workflow execution management
  */
 export class LifecycleTools {
-  constructor(private lifecycleManager: WorkflowLifecycleManager) {}
+  constructor(
+    private lifecycleManager: WorkflowLifecycleManager,
+    private registry?: ContentRegistry,
+    private logger?: ExecutionLogger
+  ) {}
 
   /**
-   * Start a new workflow execution
+   * Start a new workflow execution with phases
    */
-  startExecution(params: StartExecutionParams): WorkflowExecution {
-    return this.lifecycleManager.createExecution({
+  async startExecution(params: StartExecutionParams): Promise<StartExecutionResponse> {
+    const execution = this.lifecycleManager.createExecution({
       workflowName: params.workflowName,
       projectId: params.projectId,
       metadata: params.metadata,
       timeoutMs: params.timeoutMs,
     });
+
+    // Load workflow to get phases
+    let phases: StartExecutionResponse['phases'];
+    if (this.registry) {
+      try {
+        const workflow = await this.registry.getWorkflow(params.workflowName);
+        phases = workflow.phases;
+      } catch (error) {
+        // Workflow not found or error loading - continue without phases
+        console.warn(`Could not load workflow phases for ${params.workflowName}:`, error);
+      }
+    }
+
+    return {
+      ...execution,
+      phases,
+    };
   }
 
   /**
@@ -95,9 +128,28 @@ export class LifecycleTools {
   completeStep(params: CompleteStepParams): WorkflowStep {
     const { stepId, output, error } = params;
 
-    // TODO: Validate output against StepOutput schema if provided
-    // This would require loading .mide-lite/contracts/StepOutput.schema.json
-    // and using Ajv for validation (similar to ExecutionLogger)
+    // Validate output against StepOutput schema if logger available and output provided
+    if (this.logger && output && !error) {
+      const step = this.lifecycleManager.getStep(stepId);
+      if (step) {
+        try {
+          // Use logger's contract validation
+          this.logger.logExecution({
+            executionId: step.executionId,
+            layer: 'step',
+            layerId: stepId,
+            logLevel: 'info',
+            message: 'Step completed',
+            contractOutput: output,
+          });
+        } catch (validationError) {
+          // Contract validation failed
+          throw new Error(
+            `Step output validation failed: ${validationError instanceof Error ? validationError.message : String(validationError)}`
+          );
+        }
+      }
+    }
 
     const newState: StepExecutionState = error ? 'failed' : 'completed';
 
@@ -135,9 +187,25 @@ export class LifecycleTools {
   }): void {
     const { executionId, output, error } = params;
 
-    // TODO: Validate output against WorkflowOutput schema if provided
-    // This would require loading .mide-lite/contracts/WorkflowOutput.schema.json
-    // and using Ajv for validation (similar to ExecutionLogger)
+    // Validate output against WorkflowOutput schema if logger available and output provided
+    if (this.logger && output && !error) {
+      try {
+        // Use logger's contract validation
+        this.logger.logExecution({
+          executionId,
+          layer: 'workflow',
+          layerId: executionId,
+          logLevel: 'info',
+          message: 'Workflow completed',
+          contractOutput: output,
+        });
+      } catch (validationError) {
+        // Contract validation failed
+        throw new Error(
+          `Workflow output validation failed: ${validationError instanceof Error ? validationError.message : String(validationError)}`
+        );
+      }
+    }
 
     const newState: WorkflowExecutionState = error ? 'failed' : 'completed';
 

@@ -48,7 +48,7 @@ async function main() {
 
   // Initialize tool providers
   const contentProvider = new ContentProviderTools(registry, db.connection);
-  const lifecycleTools = new LifecycleTools(lifecycleManager);
+  const lifecycleTools = new LifecycleTools(lifecycleManager, registry, executionLogger);
   const loggingTools = new LoggingTools(executionLogger, artifactStore, findingStore);
   const queryTools = new QueryTools(db.connection, findingStore, lifecycleManager);
 
@@ -396,7 +396,7 @@ async function main() {
             const project = projectManager.associateProject((args as any).projectPath);
             (args as any).projectId = project.id;
           }
-          result = lifecycleTools.startExecution(args as any);
+          result = await lifecycleTools.startExecution(args as any);
           break;
         case 'transition_workflow_state':
           lifecycleTools.transitionWorkflowState(args as any);
