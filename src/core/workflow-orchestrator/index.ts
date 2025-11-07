@@ -21,14 +21,11 @@ import { AgentTaskExecutor } from './lib/executors/task-executor.js';
 import { StateManager } from './lib/state.js';
 import { telemetry } from './lib/telemetry.js';
 import { WorkflowError, ValidationError } from './errors.js';
-import { OrchestratorConfig } from './lib/config.js';
 import { executeWithBoundary } from './lib/execution-boundary.js';
 
 export interface OrchestrationOptions {
   workflowId?: string;
   enableTelemetry?: boolean;
-  maxParallelSteps?: number;
-  timeoutMs?: number;
 }
 
 export interface OrchestrationResult {
@@ -50,10 +47,7 @@ export class WorkflowOrchestrator {
     this.stateManager = new StateManager();
     this.agentTaskExecutor = new AgentTaskExecutor();
     this.stepExecutor = new StepExecutor(this.agentTaskExecutor);
-    this.workflowExecutor = new WorkflowExecutor(
-      this.stepExecutor,
-      options.maxParallelSteps || OrchestratorConfig.maxParallelSteps
-    );
+    this.workflowExecutor = new WorkflowExecutor(this.stepExecutor);
   }
 
   /**
@@ -76,6 +70,11 @@ export class WorkflowOrchestrator {
     // Compile workflow template into executable workflow
     const workflow = await compileWorkflow(workflowTemplate);
 
+    // Validate that compiler attached execution policy
+    if (!workflow.policy) {
+      throw new ValidationError('Workflow missing execution policy after compilation');
+    }
+
     // Initialize state
     const state = this.stateManager.createWorkflow(workflowId, workflow.name);
     this.stateManager.updateWorkflowState(workflowId, 'running');
@@ -88,7 +87,7 @@ export class WorkflowOrchestrator {
           input,
           inputSchema: WorkflowInputSchema,
           outputSchema: WorkflowOutputSchema,
-          timeoutMs: options.timeoutMs || OrchestratorConfig.workflowTimeoutMs,
+          timeoutMs: workflow.policy.timeout.totalWorkflowMs,
           context: {
             layer: 'workflow',
             workflowId,
