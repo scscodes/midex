@@ -17,6 +17,7 @@ import {
 import { WorkflowOrchestrator } from './index';
 import { ValidationError } from './errors';
 import { OrchestratorConfig } from './lib/config';
+import type { Workflow } from '../content-registry/workflows/schema';
 
 describe('WorkflowOrchestrator - Design Pattern Enforcement', () => {
   describe('Schema Validation (Zod)', () => {
@@ -56,6 +57,7 @@ describe('WorkflowOrchestrator - Design Pattern Enforcement', () => {
       const valid: StepInput = {
         step: 'test-step',
         task: 'test-task',
+        constraints: [],
         references: [],
         expected_output: 'StepOutput',
       };
@@ -78,6 +80,7 @@ describe('WorkflowOrchestrator - Design Pattern Enforcement', () => {
     it('should validate AgentInput schema', () => {
       const valid: AgentInput = {
         task: 'test-task',
+        constraints: [],
         references: [],
         expected_output: 'AgentOutput',
       };
@@ -281,7 +284,6 @@ describe('WorkflowOrchestrator - Design Pattern Enforcement', () => {
 
     it('should attach policy to ExecutableWorkflow via compiler', async () => {
       const { compileWorkflow } = await import('./compiler');
-      const { Workflow } = await import('../content-registry/workflows/schema');
 
       const mockWorkflow: Workflow = {
         name: 'test-workflow',
@@ -289,7 +291,8 @@ describe('WorkflowOrchestrator - Design Pattern Enforcement', () => {
         complexity: 'moderate',
         phases: [],
         tags: [],
-        contentType: 'workflow',
+        content: '',
+        path: '/test/workflow.md',
       };
 
       const executable = await compileWorkflow(mockWorkflow);
