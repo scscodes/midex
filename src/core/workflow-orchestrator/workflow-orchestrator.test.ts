@@ -134,23 +134,24 @@ describe('WorkflowOrchestrator - Design Pattern Enforcement', () => {
   describe('Configuration Pattern', () => {
     it('should have OrchestratorConfig in lib/config', () => {
       expect(OrchestratorConfig).toBeDefined();
-      expect(OrchestratorConfig.workflowTimeoutMs).toBeGreaterThan(0);
-      expect(OrchestratorConfig.stepTimeoutMs).toBeGreaterThan(0);
-      expect(OrchestratorConfig.agentTaskTimeoutMs).toBeGreaterThan(0);
+      expect(typeof OrchestratorConfig.enableTelemetry).toBe('boolean');
+      expect(OrchestratorConfig.logLevel).toBeDefined();
+      expect(OrchestratorConfig.escalationThreshold).toBeDefined();
+      expect(OrchestratorConfig.escalationThreshold.criticalFindings).toBeGreaterThan(0);
     });
 
     it('should support environment variable overrides', () => {
       // Config is evaluated at module load, so we test the pattern
       // In practice, env vars are read at module initialization
-      const originalEnv = process.env.MIDE_ORCHESTRATOR_MAX_RETRIES;
+      const originalEnv = process.env.MIDE_ORCHESTRATOR_ENABLE_TELEMETRY;
       expect(OrchestratorConfig).toBeDefined();
-      expect(typeof OrchestratorConfig.defaultMaxRetries).toBe('number');
-      
+      expect(typeof OrchestratorConfig.enableTelemetry).toBe('boolean');
+
       // Restore
       if (originalEnv) {
-        process.env.MIDE_ORCHESTRATOR_MAX_RETRIES = originalEnv;
+        process.env.MIDE_ORCHESTRATOR_ENABLE_TELEMETRY = originalEnv;
       } else {
-        delete process.env.MIDE_ORCHESTRATOR_MAX_RETRIES;
+        delete process.env.MIDE_ORCHESTRATOR_ENABLE_TELEMETRY;
       }
     });
   });

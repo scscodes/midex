@@ -1,6 +1,9 @@
 /**
  * Configuration constants for workflow orchestrator
- * Easily accessed and managed settings
+ *
+ * Policy-related fields (timeouts, retry, parallelism) removed - use execution-policies.ts
+ * via ExecutableWorkflow.policy instead.
+ *
  * Supports environment variable overrides for flexibility
  */
 
@@ -16,16 +19,6 @@ function getEnvBoolean(key: string, defaultValue: boolean): boolean {
 }
 
 export const OrchestratorConfig = {
-  // Retry settings
-  defaultMaxRetries: getEnvNumber('MIDE_ORCHESTRATOR_MAX_RETRIES', 3),
-  defaultBackoffMs: getEnvNumber('MIDE_ORCHESTRATOR_BACKOFF_MS', 1000),
-  escalateAfterRetries: getEnvBoolean('MIDE_ORCHESTRATOR_ESCALATE_AFTER_RETRIES', true),
-
-  // Timeout settings (milliseconds)
-  workflowTimeoutMs: getEnvNumber('MIDE_ORCHESTRATOR_WORKFLOW_TIMEOUT_MS', 3600000), // 1 hour
-  stepTimeoutMs: getEnvNumber('MIDE_ORCHESTRATOR_STEP_TIMEOUT_MS', 600000), // 10 minutes
-  agentTaskTimeoutMs: getEnvNumber('MIDE_ORCHESTRATOR_TASK_TIMEOUT_MS', 300000), // 5 minutes
-
   // Telemetry
   enableTelemetry: getEnvBoolean('MIDE_ORCHESTRATOR_ENABLE_TELEMETRY', true),
   logLevel: (process.env.MIDE_ORCHESTRATOR_LOG_LEVEL || 'info') as 'debug' | 'info' | 'warn' | 'error',
@@ -36,9 +29,5 @@ export const OrchestratorConfig = {
     highFindings: getEnvNumber('MIDE_ORCHESTRATOR_ESCALATION_HIGH', 3),
     totalBlockers: getEnvNumber('MIDE_ORCHESTRATOR_ESCALATION_BLOCKERS', 2),
   },
-
-  // Parallel execution
-  maxParallelSteps: getEnvNumber('MIDE_ORCHESTRATOR_MAX_PARALLEL_STEPS', 5),
-  maxParallelTasks: getEnvNumber('MIDE_ORCHESTRATOR_MAX_PARALLEL_TASKS', 3),
 } as const;
 
