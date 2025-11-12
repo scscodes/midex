@@ -35,11 +35,11 @@ async function safeImport(module: string, step: string): Promise<any> {
     return await import(module);
   } catch (error) {
     // Check if dist/ exists to provide better error message
-    const distPath = resolve(process.cwd(), 'dist');
+    const distPath = resolve(process.cwd(), '../dist');
     if (!existsSync(distPath)) {
       throw new SetupError(
         step,
-        `Module ${module} not found - dist/ directory missing. Build may have failed.`,
+        `Module ${module} not found - ../dist/ directory missing. Build may have failed.`,
         error
       );
     }
@@ -132,7 +132,7 @@ async function runNpmScripts(): Promise<void> {
 
 async function discoverProjects(): Promise<void> {
   const { ProjectDiscovery } = await safeImport(
-    '../dist/core/project-discovery/index.js',
+    '../../dist/core/project-discovery/index.js',
     'project-discovery'
   );
   const method = env('MIDE_DISCOVERY_METHOD', 'autodiscover');
@@ -149,7 +149,7 @@ async function discoverProjects(): Promise<void> {
 async function loadContent(backend: string, basePath: string, databasePath: string) {
   if (backend === 'database') {
     const { DatabaseBackend } = await safeImport(
-      '../dist/core/content-registry/lib/storage/database-backend.js',
+      '../../dist/core/content-registry/lib/storage/database-backend.js',
       'content-load'
     );
     const dbBackend = await DatabaseBackend.create(databasePath);
@@ -167,15 +167,15 @@ async function loadContent(backend: string, basePath: string, databasePath: stri
     }
   } else {
     const { AgentFactory } = await safeImport(
-      '../dist/core/content-registry/agents/factory.js',
+      '../../dist/core/content-registry/agents/factory.js',
       'content-load'
     );
     const { RuleFactory } = await safeImport(
-      '../dist/core/content-registry/rules/factory.js',
+      '../../dist/core/content-registry/rules/factory.js',
       'content-load'
     );
     const { WorkflowFactory } = await safeImport(
-      '../dist/core/content-registry/workflows/factory.js',
+      '../../dist/core/content-registry/workflows/factory.js',
       'content-load'
     );
 
@@ -202,7 +202,7 @@ async function setupDatabase(databasePath: string, basePath: string): Promise<{ 
   const shouldSeed = !dbExists || process.env.MIDE_SEED_DB === 'true';
 
   const { initDatabase } = await safeImport(
-    '../dist/core/database/index.js',
+    '../../dist/core/database/index.js',
     'database-setup'
   );
   const db = await initDatabase({ path: databasePath });
@@ -210,7 +210,7 @@ async function setupDatabase(databasePath: string, basePath: string): Promise<{ 
 
   if (shouldSeed && existsSync(basePath)) {
     const { seedFromFilesystem } = await safeImport(
-      '../dist/core/content-registry/lib/sync/seeder.js',
+      '../../dist/core/content-registry/lib/sync/seeder.js',
       'database-setup'
     );
     const result = await seedFromFilesystem({ basePath, databasePath });
@@ -230,8 +230,8 @@ async function setupContentSystem(): Promise<void> {
     );
   }
 
-  const basePath = env('MIDE_CONTENT_PATH', '.mide-lite');
-  const databasePath = resolve(process.cwd(), env('MIDE_DB_PATH', './data/app.db'));
+  const basePath = env('MIDE_CONTENT_PATH', './content');
+  const databasePath = resolve(process.cwd(), env('MIDE_DB_PATH', '../shared/database/app.db'));
 
   const content = await loadContent(contentBackend, basePath, databasePath);
   const total = content.agents.length + content.rules.length + content.workflows.length;

@@ -16,7 +16,7 @@ import { resolve } from 'path';
 describe('ContentRegistry', () => {
   let registry: Awaited<ReturnType<typeof ContentRegistry.init>>;
   beforeAll(async () => {
-    registry = await ContentRegistry.init({ backend: 'filesystem', basePath: '.mide-lite' });
+    registry = await ContentRegistry.init({ backend: 'filesystem', basePath: './content' });
   });
 
   describe('Read Operations', () => {
@@ -56,7 +56,7 @@ describe('ContentRegistry', () => {
     };
 
     afterEach(async () => {
-      const filePath = resolve('.mide-lite', 'agents', 'test-agent.md');
+      const filePath = resolve('./content', 'agents', 'test-agent.md');
       if (existsSync(filePath)) {
         await unlink(filePath);
       }

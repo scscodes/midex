@@ -35,6 +35,15 @@ npm run test:coverage
 npx vitest src/core/content-registry/content-registry.test.ts
 ```
 
+### MCP Server
+```bash
+# Start MCP server on stdio transport
+npm run mcp:start
+
+# Or run directly
+node dist/mcp/server.js
+```
+
 ### Environment Variables
 - `MIDE_BACKEND`: `filesystem` (default) or `database` - content storage mode
 - `MIDE_DB_PATH`: Database path (default: `./data/app.db`)
@@ -47,36 +56,57 @@ npx vitest src/core/content-registry/content-registry.test.ts
 
 ### Core Systems
 
-The codebase is organized into four major core systems under `src/core/`:
+The codebase is organized into five major core systems under `src/core/` plus an MCP server module:
 
-1. **Content Registry** (`src/core/content-registry/`)
+1. **Config** (`src/core/config/`)
+   - **Execution policies**: Complexity-aware timeout, retry, and parallelism configuration
+   - **Policy-driven execution**: Single source of truth for all execution settings
+   - **Complexity levels**: Simple (5min/step, 1 retry), Moderate (10min/step, 2 retries), High (30min/step, 3 retries)
+   - **Global standard**: Applied to all execution contexts (workflows, agents, operations)
+
+2. **Content Registry** (`src/core/content-registry/`)
    - Unified content management for agents, rules, and workflows
    - **Dual-mode operation**: filesystem (lite) or database (standard)
    - Module-per-type architecture: `{agents,rules,workflows}/` at content-registry root
    - Bidirectional sync between filesystem and database with conflict resolution
    - All content is markdown with frontmatter, validated via Zod schemas
 
-2. **Workflow Orchestrator** (`src/core/workflow-orchestrator/`)
+3. **Workflow Orchestrator** (`src/core/workflow-orchestrator/`)
    - **4-layer execution model**:
      - Layer 1: Orchestrator (lifecycle, validation, state, retry/escalation)
      - Layer 2: Workflow (step coordination, sequential/parallel execution)
      - Layer 3: Step (reusable across workflows, agent task execution)
      - Layer 4: AgentTask (lowest level, agent invocation)
+   - **Policy-driven execution**: Uses `workflow.policy` for all timeout/retry/parallelism decisions
    - Contract-based I/O validation at each layer
    - State management: `pending` → `running` → `completed/failed/escalated`
    - Automatic escalation on critical findings threshold
    - Comprehensive telemetry at all layers
 
-3. **Project Discovery** (`src/core/project-discovery/`)
+4. **Project Discovery** (`src/core/project-discovery/`)
    - **Autodiscovery mode**: Scans parent directory for neighbor projects
    - **Manual mode**: User-supplied path validation
    - Git repository detection via `.git` directory/file
    - OS-agnostic path normalization
 
-4. **Database Infrastructure** (`src/core/database/`)
+5. **Database Infrastructure** (`src/core/database/`)
    - Shared SQLite connection management via `better-sqlite3`
-   - Auto-migration system in `migrations/` subdirectory
-   - Used by Content Registry database backend and other modules
+   - Auto-migration system in `migrations/` subdirectory (current version: 007)
+   - WAL mode, 64MB cache, prepared statement caching
+   - FTS5 full-text search, normalized tags, audit logging
+   - Used by Content Registry database backend, MCP lifecycle management, and other modules
+
+### MCP Server Integration
+
+**MCP Server** (`src/mcp/`)
+- **Model Context Protocol server** with 23 tools across 4 categories
+- **Content Provider Tools (6)**: Search/retrieve workflows, agents, rules, projects
+- **Lifecycle Tools (8)**: Workflow execution state management, step dependencies, timeout detection
+- **Logging Tools (3)**: Execution logs with contract validation, artifact storage, finding aggregation
+- **Query Tools (3)**: Execution history, finding search (FTS5), detailed queries
+- **State machine**: `pending` → `running` → `completed/failed/timeout/escalated`
+- **Integration**: Deep integration with Content Registry, database, and project discovery
+- See `src/mcp/README.md` for complete tool documentation
 
 ### Content Organization (`.mide-lite/`)
 
@@ -94,15 +124,26 @@ The codebase is organized into four major core systems under `src/core/`:
 
 ### Key Architectural Patterns
 
-1. **Backend Abstraction**: Content Registry uses a `ContentBackend` interface with filesystem and database implementations, enabling seamless mode switching
+1. **Execution Policy Pattern**: All timeout, retry, and parallelism settings come from `execution-policies.ts` based on workflow complexity, not hardcoded config. This provides a single source of truth, prevents config drift, and ensures complexity-aware behavior.
 
-2. **Module-Per-Type**: Each content type (agents, rules, workflows) has its own module under `types/` with factory, sync, and type-specific operations
+   ```typescript
+   // ✅ Correct: Use execution policy
+   const policy = getExecutionPolicy(workflow.complexity);
+   await executeWithTimeout(fn, policy.timeout.perStepMs);
 
-3. **Layered Execution**: Workflow orchestrator uses strict layering (orchestrator → workflow → step → agent task) with contracts at each boundary
+   // ❌ Wrong: Hardcoded config
+   await executeWithTimeout(fn, Config.defaultTimeout);
+   ```
 
-4. **Conflict Resolution**: Sync system uses "keep newest/latest" strategy based on timestamps, with SHA-256 hash comparison for change detection
+2. **Backend Abstraction**: Content Registry uses a `ContentBackend` interface with filesystem and database implementations, enabling seamless mode switching
 
-5. **OS-Agnostic Paths**: All path operations normalized for cross-platform compatibility (Windows/macOS/Linux)
+3. **Module-Per-Type**: Each content type (agents, rules, workflows) has its own module under `types/` with factory, sync, and type-specific operations
+
+4. **Layered Execution**: Workflow orchestrator uses strict layering (orchestrator → workflow → step → agent task) with contracts at each boundary, threading `workflow.policy` through the entire execution chain
+
+5. **Conflict Resolution**: Sync system uses "keep newest/latest" strategy based on timestamps, with SHA-256 hash comparison for change detection
+
+6. **OS-Agnostic Paths**: All path operations normalized for cross-platform compatibility (Windows/macOS/Linux)
 
 ## Development Workflows
 
@@ -129,9 +170,10 @@ Follow the module-per-type pattern:
 ### Testing Strategy
 
 - Test files co-located with source: `*.test.ts`
-- Uses Vitest with node environment
+- Uses Vitest with node environment (73 tests across 5 test files)
 - Coverage via v8 provider
-- Integration tests in core system tests (e.g., `content-registry.test.ts`)
+- Integration tests in core system tests (e.g., `content-registry.test.ts`, `workflow-orchestrator.test.ts`)
+- MCP lifecycle tests: 15 comprehensive tests covering state machine, dependencies, and contract validation
 
 ### Code Style
 
@@ -143,21 +185,28 @@ Follow the module-per-type pattern:
 
 ## Common Gotchas
 
-1. **Path Resolution**: Always use absolute paths when calling Content Registry factories. Use `resolve()` from `path` module.
+1. **Execution Policies**: NEVER use hardcoded timeouts or retry values. Always use `getExecutionPolicy(complexity)` from `src/core/config/execution-policies.ts`. This is the single source of truth for all execution settings.
 
-2. **Database Connection Management**: Database backends must be properly closed after use to prevent connection leaks. The `DatabaseBackend` class handles this via `close()`.
+2. **Path Resolution**: Always use absolute paths when calling Content Registry factories. Use `resolve()` from `path` module.
 
-3. **Sync Direction**: When syncing content, "seed" means filesystem → database only, "bidirectional" means both directions with conflict resolution.
+3. **Database Connection Management**: Database backends must be properly closed after use to prevent connection leaks. The `DatabaseBackend` class handles this via `close()`.
 
-4. **State Transitions**: Workflow orchestrator state transitions are atomic. Don't manually modify state - use the execution methods.
+4. **Sync Direction**: When syncing content, "seed" means filesystem → database only, "bidirectional" means both directions with conflict resolution.
 
-5. **Agent Task Reusability**: Steps and agent tasks are designed to be reusable across multiple workflows. Don't hardcode workflow-specific logic in steps.
+5. **State Transitions**: Workflow execution state transitions are atomic and follow strict rules. Don't manually modify state - use the MCP lifecycle tools or WorkflowLifecycleManager methods.
 
-6. **Frontmatter Validation**: All markdown content is validated against Zod schemas. Missing or invalid frontmatter will cause load failures.
+6. **Agent Task Reusability**: Steps and agent tasks are designed to be reusable across multiple workflows. Don't hardcode workflow-specific logic in steps.
+
+7. **Frontmatter Validation**: All markdown content is validated against Zod schemas. Missing or invalid frontmatter will cause load failures.
+
+8. **MCP Lifecycle**: When using the MCP server, workflow executions track state across sessions. Use `get_incomplete_executions` to resume interrupted workflows.
 
 ## Key Relationships
 
 - **Setup Script → All Systems**: `scripts/setup.ts` orchestrates the complete initialization: deps install, build, project discovery, content system initialization
+- **Config → Workflow Orchestrator**: Execution policies drive all timeout, retry, and parallelism decisions in the orchestrator
 - **Content Registry ↔ Database**: Database backend depends on database infrastructure, but database doesn't depend on content registry
-- **Workflow Orchestrator → Content Registry**: Orchestrator loads workflows and agents from registry to execute
+- **Workflow Orchestrator → Content Registry**: Orchestrator loads workflows and agents from registry to execute, using workflow.policy from compiler
+- **MCP Server → All Core Systems**: MCP server integrates with Content Registry (content retrieval), Database (lifecycle storage), Project Discovery (project association), and Config (policy defaults)
+- **MCP Lifecycle → Workflow Orchestrator**: MCP provides execution tracking and state management for workflows across sessions
 - **All Systems → TypeScript Strict Mode**: All code written with strict type checking and compiler flags

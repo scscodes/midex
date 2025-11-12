@@ -5,14 +5,14 @@
   "description": "TypeScript/Node.js application with SQLite",
   "main": "dist/index.js",
   "scripts": {
-    "setup": "tsx scripts/setup.ts",
-    "clean": "tsx scripts/cleanup.ts",
+    "setup": "tsx ../shared/scripts/setup.ts",
+    "clean": "tsx ../shared/scripts/cleanup.ts",
     "build": "npm run clean && tsc",
     "dev": "tsc --watch",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "mcp:start": "node dist/mcp/server.js"
+    "mcp:start": "node ../dist/mcp/server.js"
   },
   "keywords": [],
   "author": "",

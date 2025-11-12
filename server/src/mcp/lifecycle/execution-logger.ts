@@ -45,14 +45,14 @@ export class ExecutionLogger {
 
   constructor(
     private db: DB,
-    private contractsPath: string = resolve(process.cwd(), '.mide-lite', 'contracts')
+    private contractsPath: string = resolve(process.cwd(), './content', 'contracts')
   ) {
     this.ajv = new Ajv({ allErrors: true, strict: false, validateSchema: false });
     this.loadContractSchemas();
   }
 
   /**
-   * Load all contract schemas from .mide-lite/contracts/
+   * Load all contract schemas from content/contracts/
    */
   private loadContractSchemas(): void {
     const contractFiles = [

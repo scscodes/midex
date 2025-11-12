@@ -127,7 +127,7 @@ describe('MCP Lifecycle Integration', () => {
     `);
 
     lifecycleManager = new WorkflowLifecycleManager(db);
-    executionLogger = new ExecutionLogger(db, resolve(process.cwd(), '.mide-lite', 'contracts'));
+    executionLogger = new ExecutionLogger(db, resolve(process.cwd(), './content', 'contracts'));
     artifactStore = new ArtifactStore(db);
     findingStore = new FindingStore(db);
   });
