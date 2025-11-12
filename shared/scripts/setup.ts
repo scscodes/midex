@@ -112,7 +112,9 @@ function env(key: string, defaultValue: string): string {
 
 function runCommandQuiet(command: string, successMessage: string, stepName: string): void {
   try {
-    execSync(command, { stdio: 'pipe' });
+    // Run from server/ directory (two levels up from this script in shared/scripts/)
+    const serverDir = resolve(process.cwd());
+    execSync(command, { stdio: 'pipe', cwd: serverDir });
     if (successMessage) {
       console.log(successMessage);
     }
@@ -132,7 +134,7 @@ async function runNpmScripts(): Promise<void> {
 
 async function discoverProjects(): Promise<void> {
   const { ProjectDiscovery } = await safeImport(
-    '../../dist/core/project-discovery/index.js',
+    '../../server/dist/core/project-discovery/index.js',
     'project-discovery'
   );
   const method = env('MIDE_DISCOVERY_METHOD', 'autodiscover');
@@ -149,7 +151,7 @@ async function discoverProjects(): Promise<void> {
 async function loadContent(backend: string, basePath: string, databasePath: string) {
   if (backend === 'database') {
     const { DatabaseBackend } = await safeImport(
-      '../../dist/core/content-registry/lib/storage/database-backend.js',
+      '../../server/dist/core/content-registry/lib/storage/database-backend.js',
       'content-load'
     );
     const dbBackend = await DatabaseBackend.create(databasePath);
@@ -167,15 +169,15 @@ async function loadContent(backend: string, basePath: string, databasePath: stri
     }
   } else {
     const { AgentFactory } = await safeImport(
-      '../../dist/core/content-registry/agents/factory.js',
+      '../../server/dist/core/content-registry/agents/factory.js',
       'content-load'
     );
     const { RuleFactory } = await safeImport(
-      '../../dist/core/content-registry/rules/factory.js',
+      '../../server/dist/core/content-registry/rules/factory.js',
       'content-load'
     );
     const { WorkflowFactory } = await safeImport(
-      '../../dist/core/content-registry/workflows/factory.js',
+      '../../server/dist/core/content-registry/workflows/factory.js',
       'content-load'
     );
 
@@ -202,7 +204,7 @@ async function setupDatabase(databasePath: string, basePath: string): Promise<{ 
   const shouldSeed = !dbExists || process.env.MIDE_SEED_DB === 'true';
 
   const { initDatabase } = await safeImport(
-    '../../dist/core/database/index.js',
+    '../../server/dist/database/index.js',
     'database-setup'
   );
   const db = await initDatabase({ path: databasePath });
@@ -210,7 +212,7 @@ async function setupDatabase(databasePath: string, basePath: string): Promise<{ 
 
   if (shouldSeed && existsSync(basePath)) {
     const { seedFromFilesystem } = await safeImport(
-      '../../dist/core/content-registry/lib/sync/seeder.js',
+      '../../server/dist/core/content-registry/lib/sync/seeder.js',
       'database-setup'
     );
     const result = await seedFromFilesystem({ basePath, databasePath });

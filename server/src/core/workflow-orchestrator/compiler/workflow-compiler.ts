@@ -7,8 +7,8 @@
 
 import type { Workflow, WorkflowPhase } from '../../content-registry/workflows/schema.js';
 import type { StepDefinition, AgentTaskDefinition } from '../../content-registry/workflows/execution-schema.js';
-import type { ExecutionPolicy } from '../../config/execution-policies.js';
-import { getExecutionPolicy } from '../../config/execution-policies.js';
+import type { ExecutionPolicy } from '../../../utils/execution-policies.js';
+import { getExecutionPolicy } from '../../../utils/execution-policies.js';
 
 /**
  * Executable workflow - compiled from template + policy

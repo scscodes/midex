@@ -3,8 +3,8 @@ import type { Agent } from '../../agents/schema.js';
 import type { Rule } from '../../rules/schema.js';
 import type { Workflow } from '../../workflows/schema.js';
 import { NotFoundError } from '../../errors.js';
-import { initDatabase } from '../../../database/index.js';
-import type { AppDatabase } from '../../../database/index.js';
+import { initDatabase } from '../../../../database/index.js';
+import type { AppDatabase } from '../../../../database/index.js';
 import { computeContentHash } from '../content/hash.js';
 
 interface DbAgent {

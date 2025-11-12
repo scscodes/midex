@@ -14,7 +14,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { ContentRegistry } from '../core/content-registry/index.js';
-import { initDatabase } from '../core/database/index.js';
+import { initDatabase } from '../database/index.js';
 import { WorkflowLifecycleManager } from './lifecycle/workflow-lifecycle-manager.js';
 import { ExecutionLogger } from './lifecycle/execution-logger.js';
 import { ArtifactStore } from './lifecycle/artifact-store.js';
