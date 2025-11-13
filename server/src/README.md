@@ -20,11 +20,18 @@ server/src/
 │   └── validator.ts          # Zod validation wrapper
 │
 ├── plugins/                  # Resource plugins
-│   ├── content.ts            # Agents/rules/workflows (unified)
-│   └── projects.ts           # Project discovery/association
+│   ├── content.ts            # Agents/rules/workflows
+│   ├── projects.ts           # Project discovery/association
+│   └── tool-configs/         # AI tool configurations
+│       ├── plugin.ts         # Main orchestrator
+│       ├── transformer.ts    # Config transformation
+│       ├── utils.ts          # Shared utilities
+│       ├── types.ts          # Type definitions
+│       └── extractors/       # Tool-specific extractors
 │
 └── schemas/                  # Validation schemas
-    └── content-schemas.ts    # Zod schemas for content types
+    ├── content-schemas.ts    # Content types
+    └── tool-config-schemas.ts # Tool configurations
 ```
 
 ## Core Concepts
@@ -77,11 +84,12 @@ const manager = await ResourceManager.init({
 ### Sync All Resources
 
 ```typescript
-// Sync all plugins (content + projects)
+// Sync all plugins (content + projects + tool-configs)
 const results = await manager.syncAll();
 
 console.log(`Content: +${results.content.added}, !${results.content.updated}`);
 console.log(`Projects: +${results.projects.added}`);
+console.log(`Tool Configs: +${results['tool-configs'].added}, !${results['tool-configs'].updated}`);
 ```
 
 ### Sync Specific Plugin
@@ -163,6 +171,45 @@ Discovers and tracks projects across sessions.
 - Updates `last_used_at` on access
 - Upserts on conflict (by path)
 
+### ToolConfigPlugin
+
+Discovers and manages AI coding tool configurations.
+
+**Supported Tools:**
+- Claude Code (CLI), Cursor, Windsurf, VS Code, IntelliJ IDEA
+
+**Extraction:**
+- Detects tools via directory markers (`.claude/`, `.cursor/`, etc.)
+- Extracts MCP server configs, agent rules, hooks, settings
+- OS-agnostic path resolution (Windows/macOS/Linux)
+- Supports both project-level and user-level configs
+
+**Transformation:**
+- Redacts secrets using pattern-based detection (API_KEY, TOKEN, etc.)
+- Parses JSON configs and extracts metadata (server count, env vars, auto-approval)
+- Generates unique names with hash prefixes
+
+**Loading:**
+- Persists to `tool_configs` table
+- Hash-based change detection for incremental sync
+- Upserts on conflict (by name)
+
+**Configuration:**
+Runtime behavior controlled via `.tool-config.json`:
+```json
+{
+  "enabled": true,
+  "discovery": { "projectLevel": true, "userLevel": false },
+  "extraction": {
+    "tools": {
+      "claude-code": { "enabled": true, "priority": 1 }
+    },
+    "configTypes": { "mcp_servers": true, "agent_rules": true, "hooks": true }
+  },
+  "security": { "redactSecrets": true, "secretPatterns": ["API_KEY"] }
+}
+```
+
 ## Pipeline Components
 
 ### FilesystemExtractor
@@ -235,17 +282,11 @@ All content types validated with strict Zod schemas:
 
 ## Benefits Over Legacy Systems
 
-### Before (content-registry + project-discovery)
-- **Fragmented**: Two separate systems with duplicated logic
-- **Inconsistent**: Different patterns for each resource type
-- **Hard to extend**: Adding new types required touching multiple files
-- **Tightly coupled**: Direct dependencies on specific implementations
-
-### After (Resource Pipeline)
 - **Unified**: Single system for all resource types
 - **Consistent**: Same ETL pattern across all types
 - **Easy to extend**: Just add a new plugin
 - **Loosely coupled**: Plugin interface decouples types from core
+- **Type-safe**: Full TypeScript with Zod validation
 
 ## Performance
 
@@ -266,12 +307,10 @@ npx vitest src/manager.test.ts
 
 ## Future Enhancements
 
-- **ConfigPlugin**: IDE configs (VS Code settings, EditorConfig, etc.)
 - **Watch mode**: Filesystem watching for real-time sync
 - **Remote sources**: Extract from APIs, S3, etc.
 - **Bidirectional sync**: Full conflict resolution with manual intervention UI
 - **Batch operations**: Bulk inserts for performance
-- **Migration tools**: Migrate from legacy content-registry to new system
 
 ## API Reference
 
@@ -307,30 +346,3 @@ class Pipeline {
 }
 ```
 
-## Migration from Legacy Systems
-
-The new Resource Pipeline coexists with legacy systems. To migrate:
-
-1. **Test the new system**: Use `ResourceManager` for new code
-2. **Update imports**: Change from `ContentRegistry` to `ResourceManager`
-3. **Adapt API calls**: New API is simpler but slightly different
-4. **Verify functionality**: Run tests to ensure behavior matches
-5. **Delete legacy code**: Once migration complete, remove `server/src/core/`
-
-### Example Migration
-
-**Before (legacy):**
-```typescript
-import { ContentRegistry } from '@/core/content-registry';
-
-const registry = await ContentRegistry.init({ backend: 'database' });
-const workflow = await registry.getWorkflow('bug-fix');
-```
-
-**After (new):**
-```typescript
-import { ResourceManager } from '@/src';
-
-const manager = await ResourceManager.init({ database: db, basePath: '.mide-lite' });
-const workflow = await manager.get('workflow', 'bug-fix');
-```
