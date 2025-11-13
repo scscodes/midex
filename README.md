@@ -1,20 +1,64 @@
 # midex
 
-Multi-agent (persona) workflow orchestration platform with MCP integration.
+Multi-agent workflow orchestration platform powered by mide-lite. Coordinates specialized AI agents (architect, implementer, reviewer, debugger, etc.) to perform complex software development tasks through structured workflows.
 
-Modular, extensible, global-first approach. Customize for a single developer, or adapt as a baseline for team use.
+## Architecture Overview
 
-## Overview
+midex uses a clean layered architecture separating infrastructure, application logic, and features:
 
-**midex** provides a complete infrastructure for multi-agent workflow orchestration with two operational modes:
+```
+server/
+├── database/           # Data layer (SQLite, migrations, schemas)
+├── utils/              # Shared utilities (logging, execution policies)
+├── src/                # Resource pipeline (NEW: unified resource management)
+└── mcp/                # MCP server + features (protocol, tools, orchestrator)
+```
 
-- **Lite Mode:** Filesystem-based content management. No runtime overhead. Plug-and-play agent personas, rules, and workflows.
-- **Standard Mode:** Full database backend with MCP (Model Context Protocol) server integration. Inter-session and cross-project execution tracking, contract validation, artifact storage, and finding aggregation.
+### Infrastructure Layer
+
+**Database** (`server/database/`)
+- SQLite connection management via `better-sqlite3`
+- Auto-migration system (WAL mode, FTS5, prepared statements)
+- Shared across all systems
+
+**Utilities** (`server/utils/`)
+- Execution policies: complexity-aware timeout/retry/parallelism
+- Global standards applied to all execution contexts
+
+### Application Layer
+
+**Resource Pipeline** (`server/src/`) - NEW ✨
+- Unified ETL pipeline for all resource types (content, projects, configs)
+- Plugin-based architecture with Extract → Transform → Load pattern
+- `ResourceManager` API for querying and syncing resources
+- Replaces fragmented content-registry + project-discovery systems
+
+See [Resource Pipeline Documentation](./server/src/README.md) for details.
+
+**Legacy Systems** (`server/src/core/`) - Deprecated
+- `content-registry/`: Old content management (agents/rules/workflows)
+- `project-discovery/`: Old project discovery
+- Still used by MCP, will be migrated to new Resource Pipeline
+
+### Feature Layer
+
+**MCP Server** (`server/mcp/`)
+- Model Context Protocol server with 20+ tools
+- **Content Provider Tools**: Search/retrieve workflows, agents, rules
+- **Lifecycle Tools**: Workflow execution state management
+- **Logging Tools**: Execution logs, artifacts, findings
+- **Query Tools**: Execution history and analytics
+
+**Workflow Orchestrator** (`server/mcp/orchestrator/`)
+- 4-layer execution model: Orchestrator → Workflow → Step → Agent Task
+- Policy-driven execution using workflow complexity-based policies
+- Contract validation at each layer boundary
+- State machine: `pending` → `running` → `completed/failed/escalated`
 
 ## Quick Start
 
 ```bash
-# Complete setup from zero to running
+# Complete setup (installs deps, builds, discovers projects, seeds content)
 npm run setup
 
 # Build TypeScript
@@ -23,147 +67,36 @@ npm run build
 # Run tests
 npm test
 
-# Start MCP server (Standard Mode)
+# Start MCP server
 npm run mcp:start
 ```
 
-## Architecture
+## Development Commands
 
-midex is organized into four core systems:
-
-### 1. Content Registry (`src/core/content-registry/`)
-Unified content management for agents, rules, and workflows with dual-mode storage:
-- **Filesystem Backend:** Direct markdown access for lite mode
-- **Database Backend:** SQLite with FTS5 search, normalized tags, and audit logging
-- **Bidirectional Sync:** Conflict resolution with hash-based change detection
-
-[📖 Content Registry Docs](./src/core/content-registry/README.md)
-
-### 2. Workflow Orchestrator (`src/core/workflow-orchestrator/`)
-4-layer execution model with contract validation:
-- **Layer 1:** Orchestrator (lifecycle, validation, state, retry/escalation)
-- **Layer 2:** Workflow (step coordination, sequential/parallel execution)
-- **Layer 3:** Step (reusable across workflows, agent task execution)
-- **Layer 4:** AgentTask (agent invocation)
-
-Contract-based I/O validation at each layer with Zod schemas.
-
-[📖 Workflow Orchestrator Docs](./src/core/workflow-orchestrator/README.md)
-
-### 3. Database Infrastructure (`src/core/database/`)
-Shared SQLite infrastructure with auto-migrations:
-- **Migration System:** Auto-discovery and execution of schema migrations
-- **Performance:** WAL mode, 64MB cache, prepared statement caching
-- **Advanced Features:** FTS5 search, normalized tags, audit logging, CHECK constraints
-
-Current schema version: **007** (includes execution lifecycle tables)
-
-[📖 Database Docs](./src/core/database/README.md)
-
-### 4. Project Discovery (`src/core/project-discovery/`)
-Automatic project detection and validation:
-- **Autodiscovery:** Scans parent directory for neighbor projects
-- **Manual Mode:** User-supplied path validation
-- **Git Detection:** Identifies git repositories
-- **Project Association:** Tracks discovered projects across sessions
-
-[📖 Project Discovery Docs](./src/core/project-discovery/README.md)
-
-## MCP Server Integration
-
-The **Standard Mode** includes a complete Model Context Protocol (MCP) server with 23 tools across 4 categories:
-
-### Content Provider Tools (6 tools)
-- `search_workflows` - Search workflows by tags, keywords, or complexity
-- `list_projects` - List discovered projects with pagination
-- `get_workflow` - Retrieve workflow with configurable detail level
-- `get_agent_persona` - Retrieve agent persona
-- `get_relevant_rules` - Filter rules by tags, file types, or alwaysApply
-- `get_project_context` - Get or discover project context
-
-### Lifecycle Tools (8 tools)
-- `start_execution` - Start a new workflow execution (with auto-project association)
-- `transition_workflow_state` - Transition workflow state with validation
-- `start_step` - Start a workflow step with dependency validation
-- `complete_step` - Complete a step with output validation
-- `check_execution_timeout` - Auto-detect and transition timed-out executions
-- `resume_execution` - Resume timed-out or escalated workflows
-- `complete_execution` - Complete a workflow with output validation
-- `get_incomplete_executions` - Get executions for resumption
-
-### Logging Tools (3 tools)
-- `log_execution` - Idempotent logging with contract validation
-- `store_artifact` - Store immutable artifacts (text, markdown, JSON, binary)
-- `store_finding` - Store tagged findings with project scoping
-
-### Query Tools (3 tools)
-- `query_findings` - Flexible finding search with FTS5 full-text search
-- `get_execution_history` - Get workflow execution history with filters
-- `get_execution_details` - Comprehensive execution details (steps, logs, artifacts, findings)
-
-[📖 MCP Server Docs](./src/mcp/README.md)
-
-## Content Organization
-
-All content resides in `.mide-lite/`:
-
-```
-.mide-lite/
-├── agents/       # Specialized agent personas (markdown with frontmatter)
-│   ├── supervisor.md
-│   ├── architect.md
-│   ├── implementer.md
-│   ├── reviewer.md
-│   └── ...
-├── workflows/    # Workflow definitions with phases and steps
-│   ├── feature-development.md
-│   ├── bug-fix.md
-│   ├── security-threat-assessment.md
-│   └── ...
-├── rules/        # Code quality and style rules
-│   ├── typescript-strict.md
-│   ├── test-coverage.md
-│   └── ...
-└── contracts/    # I/O schemas for workflows/steps/agents (JSON Schema)
-    ├── WorkflowOutput.schema.json
-    ├── StepOutput.schema.json
-    └── ...
-```
-
-All content uses markdown with frontmatter, validated via Zod schemas.
-
-## Development Workflows
-
-### Working with Content
-- **Filesystem mode:** Edit `.mide-lite/*.md` files directly
-- **Database mode:** Edit via ContentRegistry API or filesystem, then sync
-
-### Running the MCP Server
+### Setup and Build
 ```bash
-# Start server on stdio (for MCP clients)
-npm run mcp:start
-
-# Or run directly
-node dist/mcp/server.js
+npm run setup      # Zero to running (deps + build + discovery + seed)
+npm run build      # Build TypeScript to dist/
+npm run dev        # Watch mode for development
 ```
 
 ### Testing
 ```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run tests with coverage
-npm run test:coverage
-
-# Run specific test file
-npx vitest src/core/content-registry/content-registry.test.ts
+npm test                    # Run all tests in watch mode
+npm run test:run            # Run tests once (CI mode)
+npm run test:coverage       # Run tests with coverage
+npx vitest path/to/test.ts  # Run single test file
 ```
 
-### Environment Variables
-- `MIDE_BACKEND`: `filesystem` (default) or `database`
+### MCP Server
+```bash
+npm run mcp:start   # Start MCP server on stdio transport
+node dist/mcp/server.js  # Or run directly
+```
+
+## Environment Variables
+
+- `MIDE_BACKEND`: `filesystem` (default) or `database` - content storage mode
 - `MIDE_DB_PATH`: Database path (default: `./data/app.db`)
 - `MIDE_CONTENT_PATH`: Content directory (default: `.mide-lite`)
 - `MIDE_SEED_DB`: Set to `true` to force database reseeding
@@ -172,54 +105,50 @@ npx vitest src/core/content-registry/content-registry.test.ts
 
 ## Key Features
 
-### Execution Lifecycle Management
-- State machine enforcement: `pending` → `running` → `completed/failed/timeout/escalated`
-- Step dependency validation with `dependsOn` arrays
-- Timeout auto-detection using SQLite datetime precision
-- Cross-session resumption for timed-out or escalated workflows
-- Contract validation with Ajv against JSON schemas
+### Resource Pipeline (New System)
+- **Unified Management**: Single system for all resource types
+- **Plugin Architecture**: Easy to add new resource types
+- **ETL Pattern**: Extract → Transform → Load with validation
+- **Type-Safe**: Full TypeScript + Zod schema validation
 
-### Content Discovery
-- Progressive disclosure via `detailLevel` (name/summary/full)
-- Content redaction for secrets and PII
-- Fields filtering for selective retrieval
-- HTTP cache validation via `ifNoneMatch` (hash comparison)
-- FTS5 full-text search across all content types
+### Workflow Orchestration
+- **Multi-Agent Coordination**: Supervisor delegates to specialized agents
+- **Policy-Driven**: Complexity-based timeouts, retries, parallelism
+- **Structured Workflows**: Phases, steps, and agent tasks
+- **Execution Tracking**: Full telemetry and state management
 
-### Artifact & Finding Management
-- Immutable artifact storage (text, markdown, JSON, binary with base64)
-- Tagged findings with severity levels (info/low/medium/high/critical)
-- Project-specific and global finding scoping
-- FTS5 full-text search on findings
-- Size tracking and aggregation
+### MCP Integration
+- **20+ Tools**: Content search, lifecycle management, logging, queries
+- **State Persistence**: Execution tracking across sessions
+- **Project Association**: Auto-track projects and scope findings
+- **Full-Text Search**: FTS5-powered finding search
 
-### Idempotency & Reliability
-- Idempotent logging via unique constraints `(executionId, layer, layerId)`
-- Graceful degradation when optional dependencies unavailable
-- Atomic state transitions
-- Prepared statement caching for performance
+## Content Structure (`.mide-lite/`)
 
-## Roadmap
+```
+.mide-lite/
+├── agents/       # Specialized agent personas (markdown with frontmatter)
+├── workflows/    # Workflow definitions with phases and steps
+├── rules/        # Code quality and style rules
+└── contracts/    # I/O schemas for workflows/steps/agents
+```
 
-See [ROADMAP.md](./ROADMAP.md) for detailed feature roadmap and architecture evolution.
+**Key agents**: supervisor, architect, implementer, reviewer, debugger, security-specialist
+
+**Key workflows**: feature-development, bug-fix, parallel-code-review, security-threat-assessment
+
+## Project Status
+
+- ✅ **Infrastructure**: Database, utilities, config unified at server root
+- ✅ **Resource Pipeline**: New unified system built and tested
+- ✅ **MCP Server**: Relocated to server root with orchestrator as MCP feature
+- ⚠️ **Migration**: MCP still uses legacy systems, migration pending
 
 ## Documentation
 
-**Evergreen** docs are stored in:
-- Core system READMEs: `src/core/*/README.md`
-- MCP server docs: `src/mcp/README.md`
-- General docs: `docs/**.md`
+- [Resource Pipeline](./server/src/README.md) - New unified resource management (NEW)
+- [CLAUDE.md](./CLAUDE.md) - AI assistant instructions
 
-See [`docs/README.md`](./docs/README.md) to get started.
+## License
 
-## Contributing
-
-This project uses:
-- **TypeScript 5.7+** with strict mode
-- **ESM modules** (`"type": "module"` in package.json)
-- **Vitest** for testing
-- **better-sqlite3** for database
-- **Zod** for schema validation
-- **Ajv** for JSON schema validation
-
-All code follows strict type checking with `noUncheckedIndexedAccess: true`.
+ISC

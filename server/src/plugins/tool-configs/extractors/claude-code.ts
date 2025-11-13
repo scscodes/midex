@@ -1,0 +1,65 @@
+/**
+ * Claude Code Extractor
+ * Extracts MCP servers, hooks, and agent rules from Claude Code projects
+ */
+
+import { existsSync, readFileSync, statSync } from 'fs';
+import { join, basename } from 'path';
+import { computeHash } from '../../../lib/hash.js';
+import { getUserConfigPath } from '../utils.js';
+import type { ToolExtractor, ExtractedConfig } from '../types.js';
+
+export class ClaudeCodeExtractor implements ToolExtractor {
+  async extractProject(projectPath: string): Promise<ExtractedConfig[]> {
+    const configs: ExtractedConfig[] = [];
+
+    // .mcp.json - MCP servers
+    const mcpPath = join(projectPath, '.mcp.json');
+    if (existsSync(mcpPath)) {
+      configs.push(this.readConfig(mcpPath, 'mcp_servers'));
+    }
+
+    // .claude/settings.json or settings.local.json - Hooks
+    const settingsPath = join(projectPath, '.claude', 'settings.json');
+    const settingsLocalPath = join(projectPath, '.claude', 'settings.local.json');
+    if (existsSync(settingsLocalPath)) {
+      configs.push(this.readConfig(settingsLocalPath, 'hooks'));
+    } else if (existsSync(settingsPath)) {
+      configs.push(this.readConfig(settingsPath, 'hooks'));
+    }
+
+    // CLAUDE.md - Agent rules/instructions
+    const claudeMdPath = join(projectPath, 'CLAUDE.md');
+    if (existsSync(claudeMdPath)) {
+      configs.push(this.readConfig(claudeMdPath, 'agent_rules'));
+    }
+
+    return configs;
+  }
+
+  async extractUser(): Promise<ExtractedConfig[]> {
+    const configs: ExtractedConfig[] = [];
+    const userPath = getUserConfigPath('claude-code');
+
+    if (userPath && existsSync(userPath)) {
+      configs.push(this.readConfig(userPath, 'hooks'));
+    }
+
+    return configs;
+  }
+
+  private readConfig(filePath: string, configType: 'mcp_servers' | 'hooks' | 'agent_rules'): ExtractedConfig {
+    const content = readFileSync(filePath, 'utf-8');
+    const stats = statSync(filePath);
+
+    return {
+      filePath,
+      content,
+      hash: computeHash(content),
+      toolType: 'claude-code',
+      configType,
+      lastModified: stats.mtime,
+      size: stats.size,
+    };
+  }
+}

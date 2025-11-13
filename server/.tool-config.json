@@ -1,0 +1,39 @@
+{
+  "enabled": true,
+  "syncStrategy": {
+    "mode": "readonly",
+    "mergeStrategy": "keep-both",
+    "conflictResolution": "keep-newest",
+    "createBackups": true
+  },
+  "discovery": {
+    "projectLevel": true,
+    "userLevel": false,
+    "followSymlinks": false
+  },
+  "extraction": {
+    "tools": {
+      "claude-code": { "enabled": true, "priority": 1 },
+      "cursor": { "enabled": true, "priority": 2 },
+      "windsurf": { "enabled": true, "priority": 3 },
+      "vscode": { "enabled": true, "priority": 4 },
+      "intellij": { "enabled": true, "priority": 5 }
+    },
+    "configTypes": {
+      "mcp_servers": true,
+      "agent_rules": true,
+      "hooks": true,
+      "settings": false
+    }
+  },
+  "security": {
+    "redactSecrets": true,
+    "secretPatterns": [
+      "API_KEY",
+      "TOKEN",
+      "PASSWORD",
+      "SECRET",
+      "BEARER"
+    ]
+  }
+}

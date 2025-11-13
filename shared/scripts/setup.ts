@@ -132,120 +132,51 @@ async function runNpmScripts(): Promise<void> {
   runCommandQuiet('npm run build', '', 'npm-build');
 }
 
-async function discoverProjects(): Promise<void> {
-  const { ProjectDiscovery } = await safeImport(
-    '../../server/dist/core/project-discovery/index.js',
-    'project-discovery'
-  );
-  const method = env('MIDE_DISCOVERY_METHOD', 'autodiscover');
-  const options: { method: string; targetPath?: string } = { method };
-  if (process.env.MIDE_PROJECT_PATH) {
-    options.targetPath = process.env.MIDE_PROJECT_PATH;
-  }
+async function syncResources(): Promise<void> {
+  const basePath = resolve(process.cwd(), env('MIDE_CONTENT_PATH', './content'));
+  const databasePath = resolve(process.cwd(), env('MIDE_DB_PATH', './data/app.db'));
 
-  const result = await ProjectDiscovery.discover(options);
-  const methodLabel = method === 'autodiscover' ? 'autodiscovery' : 'manual';
-  console.log(`- Projects: ${result.discovered} discovered (${result.valid} git repos) via ${methodLabel}`);
-}
-
-async function loadContent(backend: string, basePath: string, databasePath: string) {
-  if (backend === 'database') {
-    const { DatabaseBackend } = await safeImport(
-      '../../server/dist/core/content-registry/lib/storage/database-backend.js',
-      'content-load'
-    );
-    const dbBackend = await DatabaseBackend.create(databasePath);
-    try {
-      const [agents, rules, workflows] = await Promise.all([
-        dbBackend.listAgents(),
-        dbBackend.listRules(),
-        dbBackend.listWorkflows(),
-      ]);
-      return { agents, rules, workflows };
-    } catch (error) {
-      throw new SetupError('content-load', 'Failed to load content from database', error);
-    } finally {
-      dbBackend.close();
-    }
-  } else {
-    const { AgentFactory } = await safeImport(
-      '../../server/dist/core/content-registry/agents/factory.js',
-      'content-load'
-    );
-    const { RuleFactory } = await safeImport(
-      '../../server/dist/core/content-registry/rules/factory.js',
-      'content-load'
-    );
-    const { WorkflowFactory } = await safeImport(
-      '../../server/dist/core/content-registry/workflows/factory.js',
-      'content-load'
-    );
-
-    try {
-      const [agents, rules, workflows] = await Promise.all([
-        AgentFactory.list(basePath),
-        RuleFactory.list(basePath),
-        WorkflowFactory.list(basePath),
-      ]);
-      return { agents, rules, workflows };
-    } catch (error) {
-      throw new SetupError('content-load', 'Failed to load content from filesystem', error);
-    }
-  }
-}
-
-async function setupDatabase(databasePath: string, basePath: string): Promise<{ seeded: number }> {
-  const dataDir = resolve(process.cwd(), 'data');
-  if (!existsSync(dataDir)) {
-    mkdirSync(dataDir, { recursive: true });
-  }
-
-  const dbExists = existsSync(databasePath);
-  const shouldSeed = !dbExists || process.env.MIDE_SEED_DB === 'true';
-
+  // Initialize database
   const { initDatabase } = await safeImport(
     '../../server/dist/database/index.js',
-    'database-setup'
+    'resource-sync'
   );
   const db = await initDatabase({ path: databasePath });
+
+  // Initialize Resource Manager
+  const { ResourceManager } = await safeImport(
+    '../../server/dist/src/index.js',
+    'resource-sync'
+  );
+  const manager = await ResourceManager.init({
+    database: db.connection,
+    basePath,
+  });
+
+  // Sync all resources (content, projects, tool configs)
+  const results = await manager.syncAll();
+
+  // Log results
+  const contentResult = results['content'];
+  const projectsResult = results['projects'];
+  const toolConfigsResult = results['tool-configs'];
+
+  if (contentResult) {
+    const total = contentResult.added + contentResult.updated;
+    console.log(`- Content: +${contentResult.added} new, !${contentResult.updated} updated${contentResult.errors > 0 ? `, ✗${contentResult.errors} errors` : ''}`);
+  }
+
+  if (projectsResult) {
+    console.log(`- Projects: +${projectsResult.added} discovered${projectsResult.errors > 0 ? `, ✗${projectsResult.errors} errors` : ''}`);
+  }
+
+  if (toolConfigsResult) {
+    console.log(`- Tool Configs: +${toolConfigsResult.added} new, !${toolConfigsResult.updated} updated${toolConfigsResult.errors > 0 ? `, ✗${toolConfigsResult.errors} errors` : ''}`);
+  }
+
   db.close();
-
-  if (shouldSeed && existsSync(basePath)) {
-    const { seedFromFilesystem } = await safeImport(
-      '../../server/dist/core/content-registry/lib/sync/seeder.js',
-      'database-setup'
-    );
-    const result = await seedFromFilesystem({ basePath, databasePath });
-    const totalSeeded = result.agents.seeded + result.rules.seeded + result.workflows.seeded;
-    return { seeded: totalSeeded };
-  }
-
-  return { seeded: 0 };
 }
 
-async function setupContentSystem(): Promise<void> {
-  const contentBackend = env('MIDE_BACKEND', 'filesystem');
-  if (contentBackend !== 'filesystem' && contentBackend !== 'database') {
-    throw new SetupError(
-      'content-system',
-      `Invalid MIDE_BACKEND value: ${contentBackend}. Must be 'filesystem' or 'database'`
-    );
-  }
-
-  const basePath = env('MIDE_CONTENT_PATH', './content');
-  const databasePath = resolve(process.cwd(), env('MIDE_DB_PATH', '../shared/database/app.db'));
-
-  const content = await loadContent(contentBackend, basePath, databasePath);
-  const total = content.agents.length + content.rules.length + content.workflows.length;
-
-  if (contentBackend === 'database') {
-    const { seeded } = await setupDatabase(databasePath, basePath);
-    const modeMsg = seeded > 0 ? `Database: seeded ${seeded} items` : 'Database: loaded';
-    console.log(`- ${modeMsg} (${content.agents.length} agents, ${content.rules.length} rules, ${content.workflows.length} workflows - ${total} total)`);
-  } else {
-    console.log(`- Filesystem: loaded ${total} items (${content.agents.length} agents, ${content.rules.length} rules, ${content.workflows.length} workflows)`);
-  }
-}
 
 // ============================================================================
 // Main Setup
@@ -263,14 +194,8 @@ async function main(): Promise<void> {
   });
 
   runner.add({
-    name: 'project-discovery',
-    run: discoverProjects,
-    optional: true,
-  });
-
-  runner.add({
-    name: 'content-system',
-    run: setupContentSystem,
+    name: 'resource-sync',
+    run: syncResources,
   });
 
   await runner.execute();

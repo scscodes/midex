@@ -54,24 +54,54 @@ node dist/mcp/server.js
 
 ## High-Level Architecture
 
-### Core Systems
+midex uses a layered architecture separating infrastructure, application logic, and features:
 
-The codebase is organized into five major core systems under `src/core/` plus an MCP server module:
+```
+server/
+├── database/           # Infrastructure: Data layer
+├── utils/              # Infrastructure: Shared utilities
+├── src/                # Application: Resource pipeline
+└── mcp/                # Features: MCP server + orchestrator
+```
 
-1. **Config** (`src/core/config/`)
+### Infrastructure Layer
+
+1. **Database** (`server/database/`)
+   - Shared SQLite connection management via `better-sqlite3`
+   - Auto-migration system in `migrations/` subdirectory (current version: 007)
+   - WAL mode, 64MB cache, prepared statement caching
+   - FTS5 full-text search, normalized tags, audit logging
+   - Used by all systems (resource pipeline, MCP, orchestrator)
+
+2. **Utilities** (`server/utils/`)
    - **Execution policies**: Complexity-aware timeout, retry, and parallelism configuration
    - **Policy-driven execution**: Single source of truth for all execution settings
    - **Complexity levels**: Simple (5min/step, 1 retry), Moderate (10min/step, 2 retries), High (30min/step, 3 retries)
    - **Global standard**: Applied to all execution contexts (workflows, agents, operations)
 
-2. **Content Registry** (`src/core/content-registry/`)
-   - Unified content management for agents, rules, and workflows
-   - **Dual-mode operation**: filesystem (lite) or database (standard)
-   - Module-per-type architecture: `{agents,rules,workflows}/` at content-registry root
-   - Bidirectional sync between filesystem and database with conflict resolution
-   - All content is markdown with frontmatter, validated via Zod schemas
+### Application Layer
 
-3. **Workflow Orchestrator** (`src/core/workflow-orchestrator/`)
+3. **Resource Pipeline** (`server/src/`) - NEW ✨
+   - Unified ETL (Extract, Transform, Load) pipeline for all resource types
+   - Plugin-based architecture: each resource type is a self-contained plugin
+   - **ContentPlugin**: Manages agents, rules, workflows as unified content
+   - **ProjectsPlugin**: Project discovery and association tracking
+   - Replaces fragmented `content-registry` + `project-discovery` systems
+   - See `server/src/README.md` for detailed documentation
+
+4. **Legacy Systems** (`server/src/core/`) - DEPRECATED
+   - **Content Registry** (`src/core/content-registry/`): Old content management
+   - **Project Discovery** (`src/core/project-discovery/`): Old project discovery
+   - Still used by MCP server, migration to Resource Pipeline pending
+
+### Feature Layer
+
+5. **MCP Server** (`server/mcp/`)
+   - Model Context Protocol server with 20+ tools
+   - Content provider tools, lifecycle tools, logging tools, query tools
+   - Deep integration with database, resource pipeline (future), and orchestrator
+
+6. **Workflow Orchestrator** (`server/mcp/orchestrator/`)
    - **4-layer execution model**:
      - Layer 1: Orchestrator (lifecycle, validation, state, retry/escalation)
      - Layer 2: Workflow (step coordination, sequential/parallel execution)
@@ -80,21 +110,7 @@ The codebase is organized into five major core systems under `src/core/` plus an
    - **Policy-driven execution**: Uses `workflow.policy` for all timeout/retry/parallelism decisions
    - Contract-based I/O validation at each layer
    - State management: `pending` → `running` → `completed/failed/escalated`
-   - Automatic escalation on critical findings threshold
-   - Comprehensive telemetry at all layers
-
-4. **Project Discovery** (`src/core/project-discovery/`)
-   - **Autodiscovery mode**: Scans parent directory for neighbor projects
-   - **Manual mode**: User-supplied path validation
-   - Git repository detection via `.git` directory/file
-   - OS-agnostic path normalization
-
-5. **Database Infrastructure** (`src/core/database/`)
-   - Shared SQLite connection management via `better-sqlite3`
-   - Auto-migration system in `migrations/` subdirectory (current version: 007)
-   - WAL mode, 64MB cache, prepared statement caching
-   - FTS5 full-text search, normalized tags, audit logging
-   - Used by Content Registry database backend, MCP lifecycle management, and other modules
+   - Located in MCP because it's an MCP feature, not core infrastructure
 
 ### MCP Server Integration
 

@@ -1,2 +1,0 @@
-// Plugins module entry point
-
