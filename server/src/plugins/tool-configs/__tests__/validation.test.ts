@@ -180,6 +180,51 @@ describe('Tool Config Extractor Validation', () => {
       expect(configs).toHaveLength(1);
       expect(configs[0]?.configType).toBe('agent_rules');
     });
+
+    it('should extract multiple .windsurf/rules/*.md files', async () => {
+      const extractor = new WindsurfExtractor();
+      const rulesDir = join(testDir, '.windsurf', 'rules');
+      mkdirSync(rulesDir, { recursive: true });
+
+      writeFileSync(join(rulesDir, 'typescript.md'), '# TypeScript Rules');
+      writeFileSync(join(rulesDir, 'testing.md'), '# Testing Rules');
+      writeFileSync(join(rulesDir, 'security.md'), '# Security Rules');
+
+      const configs = await extractor.extractProject(testDir);
+      expect(configs).toHaveLength(3);
+      expect(configs.every(c => c.configType === 'agent_rules')).toBe(true);
+    });
+
+    it('should extract .codeiumignore', async () => {
+      const extractor = new WindsurfExtractor();
+      const ignoreContent = '*.log\nnode_modules/\n.env';
+      writeFileSync(join(testDir, '.codeiumignore'), ignoreContent);
+
+      const configs = await extractor.extractProject(testDir);
+      expect(configs).toHaveLength(1);
+      expect(configs[0]?.configType).toBe('settings');
+      expect(configs[0]?.content).toBe(ignoreContent);
+    });
+
+    it('should extract .windsurf/mcp.json', async () => {
+      const extractor = new WindsurfExtractor();
+      const mcpConfig = {
+        mcpServers: {
+          'test-server': {
+            command: 'node',
+            args: ['server.js'],
+          },
+        },
+      };
+
+      const windsurfDir = join(testDir, '.windsurf');
+      mkdirSync(windsurfDir, { recursive: true });
+      writeFileSync(join(windsurfDir, 'mcp.json'), JSON.stringify(mcpConfig, null, 2));
+
+      const configs = await extractor.extractProject(testDir);
+      expect(configs).toHaveLength(1);
+      expect(configs[0]?.configType).toBe('mcp_servers');
+    });
   });
 
   describe('VSCodeExtractor', () => {
@@ -204,7 +249,7 @@ describe('Tool Config Extractor Validation', () => {
       expect(configs[0]?.configType).toBe('mcp_servers');
     });
 
-    it('should skip .vscode/settings.json without MCP config', async () => {
+    it('should skip .vscode/settings.json without MCP or Copilot config', async () => {
       const extractor = new VSCodeExtractor();
       const settings = { 'editor.formatOnSave': true };
 
@@ -214,6 +259,78 @@ describe('Tool Config Extractor Validation', () => {
 
       const configs = await extractor.extractProject(testDir);
       expect(configs).toHaveLength(0);
+    });
+
+    it('should extract .github/copilot-instructions.md', async () => {
+      const extractor = new VSCodeExtractor();
+      const instructions = '# Project Instructions\n\nUse TypeScript strict mode for all files.';
+
+      const githubDir = join(testDir, '.github');
+      mkdirSync(githubDir, { recursive: true });
+      writeFileSync(join(githubDir, 'copilot-instructions.md'), instructions);
+
+      const configs = await extractor.extractProject(testDir);
+      expect(configs).toHaveLength(1);
+      expect(configs[0]?.configType).toBe('agent_rules');
+      expect(configs[0]?.content).toBe(instructions);
+    });
+
+    it('should extract multiple *.instructions.md files', async () => {
+      const extractor = new VSCodeExtractor();
+
+      const srcDir = join(testDir, 'src');
+      mkdirSync(srcDir, { recursive: true });
+      writeFileSync(join(srcDir, 'typescript.instructions.md'), '# TypeScript Instructions');
+
+      const testsDir = join(testDir, 'tests');
+      mkdirSync(testsDir, { recursive: true });
+      writeFileSync(join(testsDir, 'testing.instructions.md'), '# Testing Instructions');
+
+      const configs = await extractor.extractProject(testDir);
+      expect(configs).toHaveLength(2);
+      expect(configs.every(c => c.configType === 'agent_rules')).toBe(true);
+    });
+
+    it('should extract .vscode/settings.json with Copilot config', async () => {
+      const extractor = new VSCodeExtractor();
+      const settings = {
+        'editor.formatOnSave': true,
+        'github.copilot.enable': {
+          '*': true,
+        },
+        'github.copilot.chat.codeGeneration.useInstructionFiles': true,
+      };
+
+      const vscodeDir = join(testDir, '.vscode');
+      mkdirSync(vscodeDir, { recursive: true });
+      writeFileSync(join(vscodeDir, 'settings.json'), JSON.stringify(settings, null, 2));
+
+      const configs = await extractor.extractProject(testDir);
+      expect(configs).toHaveLength(1);
+      expect(configs[0]?.configType).toBe('settings');
+    });
+
+    it('should extract both Copilot instructions and settings', async () => {
+      const extractor = new VSCodeExtractor();
+
+      // Add Copilot instructions
+      const githubDir = join(testDir, '.github');
+      mkdirSync(githubDir, { recursive: true });
+      writeFileSync(join(githubDir, 'copilot-instructions.md'), '# Instructions');
+
+      // Add Copilot settings
+      const vscodeDir = join(testDir, '.vscode');
+      mkdirSync(vscodeDir, { recursive: true });
+      const settings = {
+        'github.copilot.enable': { '*': true },
+      };
+      writeFileSync(join(vscodeDir, 'settings.json'), JSON.stringify(settings, null, 2));
+
+      const configs = await extractor.extractProject(testDir);
+      expect(configs).toHaveLength(2);
+      const types = configs.map(c => c.configType);
+      expect(types).toContain('agent_rules');
+      expect(types).toContain('settings');
     });
   });
 
