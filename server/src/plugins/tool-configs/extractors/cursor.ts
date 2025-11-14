@@ -19,6 +19,12 @@ export class CursorExtractor implements ToolExtractor {
       configs.push(this.readConfig(mcpPath, 'mcp_servers'));
     }
 
+    // .cursor/settings.json - Cursor-specific settings
+    const settingsPath = join(projectPath, '.cursor', 'settings.json');
+    if (existsSync(settingsPath)) {
+      configs.push(this.readConfig(settingsPath, 'settings'));
+    }
+
     // .cursor/rules/*.mdc - Agent rules
     const rulesDir = join(projectPath, '.cursor', 'rules');
     if (existsSync(rulesDir) && statSync(rulesDir).isDirectory()) {
@@ -51,7 +57,7 @@ export class CursorExtractor implements ToolExtractor {
     return configs;
   }
 
-  private readConfig(filePath: string, configType: 'mcp_servers' | 'agent_rules'): ExtractedConfig {
+  private readConfig(filePath: string, configType: 'mcp_servers' | 'agent_rules' | 'settings'): ExtractedConfig {
     const content = readFileSync(filePath, 'utf-8');
     const stats = statSync(filePath);
 

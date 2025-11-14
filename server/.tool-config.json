@@ -23,7 +23,7 @@
       "mcp_servers": true,
       "agent_rules": true,
       "hooks": true,
-      "settings": false
+      "settings": true
     }
   },
   "security": {

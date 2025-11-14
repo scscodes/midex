@@ -1,6 +1,6 @@
 /**
  * Windsurf Extractor
- * Extracts agent rules from Windsurf projects
+ * Extracts MCP servers and agent rules from Windsurf projects
  */
 
 import { existsSync, readFileSync, statSync } from 'fs';
@@ -12,6 +12,12 @@ import type { ToolExtractor, ExtractedConfig } from '../types.js';
 export class WindsurfExtractor implements ToolExtractor {
   async extractProject(projectPath: string): Promise<ExtractedConfig[]> {
     const configs: ExtractedConfig[] = [];
+
+    // .windsurf/mcp.json - Project-level MCP servers
+    const mcpPath = join(projectPath, '.windsurf', 'mcp.json');
+    if (existsSync(mcpPath)) {
+      configs.push(this.readConfig(mcpPath, 'mcp_servers'));
+    }
 
     // .windsurf/rules/rules.md - Agent rules
     const rulesPath = join(projectPath, '.windsurf', 'rules', 'rules.md');

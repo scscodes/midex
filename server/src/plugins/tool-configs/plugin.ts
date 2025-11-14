@@ -20,6 +20,7 @@ import type { ToolType, ConfigLevel } from '../../schemas/tool-config-schemas.js
 import type { PluginConfig, ToolConfigData, ToolExtractor, ExtractedConfig } from './types.js';
 import { detectTools, findGitRoot } from './utils.js';
 import { ToolConfigTransformer } from './transformer.js';
+import { ProjectAssociationManager } from '../../lib/project-association.js';
 import { ClaudeCodeExtractor } from './extractors/claude-code.js';
 import { CursorExtractor } from './extractors/cursor.js';
 import { WindsurfExtractor } from './extractors/windsurf.js';
@@ -36,6 +37,7 @@ export class ToolConfigPlugin implements ResourcePlugin<ToolConfigData> {
   private config: PluginConfig;
   private transformer: ToolConfigTransformer;
   private extractors: Map<ToolType, ToolExtractor>;
+  private projectManager: ProjectAssociationManager;
 
   constructor(
     private db: DB,
@@ -46,6 +48,9 @@ export class ToolConfigPlugin implements ResourcePlugin<ToolConfigData> {
     const gitRoot = findGitRoot(basePath) || basePath;
     const configPath = join(gitRoot, 'server', '.tool-config.json');
     this.config = this.loadConfig(configPath);
+
+    // Initialize project manager
+    this.projectManager = new ProjectAssociationManager(this.db);
 
     // Initialize transformer
     this.transformer = new ToolConfigTransformer(this.config, basePath);
@@ -128,7 +133,7 @@ export class ToolConfigPlugin implements ResourcePlugin<ToolConfigData> {
         const configs = await extractor.extractProject(projectPath);
         // Mark as project-level
         configs.forEach(c => c.level = 'project');
-        rawResources.push(...this.convertToRawResources(configs));
+        rawResources.push(...this.convertToRawResources(configs, projectPath));
       }
 
       // Extract user-level configs
@@ -136,14 +141,14 @@ export class ToolConfigPlugin implements ResourcePlugin<ToolConfigData> {
         const configs = await extractor.extractUser();
         // Mark as user-level
         configs.forEach(c => c.level = 'user');
-        rawResources.push(...this.convertToRawResources(configs));
+        rawResources.push(...this.convertToRawResources(configs, projectPath));
       }
     }
 
     return rawResources;
   }
 
-  private convertToRawResources(extracted: ExtractedConfig[]): RawResource[] {
+  private convertToRawResources(extracted: ExtractedConfig[], projectPath: string): RawResource[] {
     return extracted.map(config => ({
       type: this.resourceType,
       name: config.filePath,
@@ -156,6 +161,7 @@ export class ToolConfigPlugin implements ResourcePlugin<ToolConfigData> {
         configType: config.configType,
         size: config.size,
         level: config.level, // Pass through level if set
+        projectPath, // Add project path for association
       },
     }));
   }
@@ -172,7 +178,14 @@ export class ToolConfigPlugin implements ResourcePlugin<ToolConfigData> {
       level: raw.metadata.level as ConfigLevel | undefined, // Pass through level
     };
 
-    const transformed = this.transformer.transform(extracted);
+    // Associate project if level is 'project'
+    let projectId: number | undefined;
+    if (extracted.level === 'project' && raw.metadata.projectPath) {
+      const project = this.projectManager.associateProject(raw.metadata.projectPath as string);
+      projectId = project.id;
+    }
+
+    const transformed = this.transformer.transform(extracted, projectId);
 
     return {
       type: this.resourceType,
