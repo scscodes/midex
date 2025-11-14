@@ -92,9 +92,10 @@ export class FilesystemExtractor {
    * Check if filename matches any pattern
    */
   private matchesPatterns(filename: string, patterns: string[]): boolean {
-    // Simple pattern matching (just check file extension for now)
+    // Simple pattern matching (supports *.ext and **/*.ext)
     return patterns.some((pattern) => {
-      const ext = pattern.replace('**/*', '');
+      // Remove leading glob patterns to get extension
+      const ext = pattern.replace(/^\*\*\//, '').replace(/^\*/, '');
       return filename.endsWith(ext);
     });
   }

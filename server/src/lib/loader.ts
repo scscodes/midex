@@ -89,6 +89,10 @@ export class DatabaseLoader {
         if (Array.isArray(value) || (typeof value === 'object' && value !== null)) {
           return JSON.stringify(value);
         }
+        // Convert boolean to integer (0 or 1) for SQLite
+        if (typeof value === 'boolean') {
+          return value ? 1 : 0;
+        }
         return value;
       }
       if (col in transformed.metadata) {
@@ -96,6 +100,10 @@ export class DatabaseLoader {
       }
       if (col === 'name') return transformed.name;
       if (col === 'type') return transformed.type;
+      // Handle snake_case to camelCase mapping
+      if (col === 'file_hash' && data?.fileHash) {
+        return data.fileHash;
+      }
       return null;
     });
   }

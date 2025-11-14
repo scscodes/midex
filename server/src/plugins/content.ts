@@ -70,12 +70,16 @@ export class ContentPlugin implements ResourcePlugin<ContentData> {
     ),
     workflow: new MarkdownTransformer(
       WorkflowFrontmatterSchema,
-      (frontmatter, content, metadata) => ({
-        ...frontmatter,
-        content,
-        path: metadata.path,
-        fileHash: metadata.hash,
-      })
+      (frontmatter, content, metadata) => {
+        const { complexityHint, ...rest } = frontmatter;
+        return {
+          ...rest,
+          complexity: complexityHint,  // Map complexityHint → complexity for DB column
+          content,
+          path: metadata.path,
+          fileHash: metadata.hash,
+        };
+      }
     ),
   };
 
@@ -208,7 +212,7 @@ export class ContentPlugin implements ResourcePlugin<ContentData> {
       case 'workflow':
         return {
           table: 'workflows',
-          columns: ['name', 'description', 'content', 'tags', 'keywords', 'complexity_hint', 'path', 'file_hash'],
+          columns: ['name', 'description', 'content', 'tags', 'complexity', 'path', 'file_hash'],
         };
       default:
         throw new Error(`Unknown content type: ${contentType}`);

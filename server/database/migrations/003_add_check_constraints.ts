@@ -136,61 +136,6 @@ const migration: Migration = {
         UPDATE workflows SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
       END;
     `);
-
-    // Add constraints to normalized tag tables
-    db.exec(`
-      CREATE TABLE agent_tags_new (
-        agent_id INTEGER NOT NULL,
-        tag TEXT NOT NULL CHECK(length(tag) > 0 AND length(tag) <= 50),
-        PRIMARY KEY (agent_id, tag),
-        FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
-      );
-    `);
-
-    db.exec(`
-      INSERT INTO agent_tags_new (agent_id, tag)
-      SELECT agent_id, tag FROM agent_tags;
-    `);
-
-    db.exec(`DROP TABLE agent_tags;`);
-    db.exec(`ALTER TABLE agent_tags_new RENAME TO agent_tags;`);
-    db.exec(`CREATE INDEX idx_agent_tags_tag ON agent_tags(tag);`);
-
-    db.exec(`
-      CREATE TABLE rule_tags_new (
-        rule_id INTEGER NOT NULL,
-        tag TEXT NOT NULL CHECK(length(tag) > 0 AND length(tag) <= 50),
-        PRIMARY KEY (rule_id, tag),
-        FOREIGN KEY (rule_id) REFERENCES rules(id) ON DELETE CASCADE
-      );
-    `);
-
-    db.exec(`
-      INSERT INTO rule_tags_new (rule_id, tag)
-      SELECT rule_id, tag FROM rule_tags;
-    `);
-
-    db.exec(`DROP TABLE rule_tags;`);
-    db.exec(`ALTER TABLE rule_tags_new RENAME TO rule_tags;`);
-    db.exec(`CREATE INDEX idx_rule_tags_tag ON rule_tags(tag);`);
-
-    db.exec(`
-      CREATE TABLE workflow_tags_new (
-        workflow_id INTEGER NOT NULL,
-        tag TEXT NOT NULL CHECK(length(tag) > 0 AND length(tag) <= 50),
-        PRIMARY KEY (workflow_id, tag),
-        FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
-      );
-    `);
-
-    db.exec(`
-      INSERT INTO workflow_tags_new (workflow_id, tag)
-      SELECT workflow_id, tag FROM workflow_tags;
-    `);
-
-    db.exec(`DROP TABLE workflow_tags;`);
-    db.exec(`ALTER TABLE workflow_tags_new RENAME TO workflow_tags;`);
-    db.exec(`CREATE INDEX idx_workflow_tags_tag ON workflow_tags(tag);`);
   },
 
   down: (db) => {
@@ -293,49 +238,6 @@ const migration: Migration = {
         UPDATE workflows SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
       END;
     `);
-
-    // Revert tag tables
-    db.exec(`DROP INDEX IF EXISTS idx_agent_tags_tag;`);
-    db.exec(`
-      CREATE TABLE agent_tags_old (
-        agent_id INTEGER NOT NULL,
-        tag TEXT NOT NULL,
-        PRIMARY KEY (agent_id, tag),
-        FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
-      );
-    `);
-    db.exec(`INSERT INTO agent_tags_old SELECT * FROM agent_tags;`);
-    db.exec(`DROP TABLE agent_tags;`);
-    db.exec(`ALTER TABLE agent_tags_old RENAME TO agent_tags;`);
-    db.exec(`CREATE INDEX idx_agent_tags_tag ON agent_tags(tag);`);
-
-    db.exec(`DROP INDEX IF EXISTS idx_rule_tags_tag;`);
-    db.exec(`
-      CREATE TABLE rule_tags_old (
-        rule_id INTEGER NOT NULL,
-        tag TEXT NOT NULL,
-        PRIMARY KEY (rule_id, tag),
-        FOREIGN KEY (rule_id) REFERENCES rules(id) ON DELETE CASCADE
-      );
-    `);
-    db.exec(`INSERT INTO rule_tags_old SELECT * FROM rule_tags;`);
-    db.exec(`DROP TABLE rule_tags;`);
-    db.exec(`ALTER TABLE rule_tags_old RENAME TO rule_tags;`);
-    db.exec(`CREATE INDEX idx_rule_tags_tag ON rule_tags(tag);`);
-
-    db.exec(`DROP INDEX IF EXISTS idx_workflow_tags_tag;`);
-    db.exec(`
-      CREATE TABLE workflow_tags_old (
-        workflow_id INTEGER NOT NULL,
-        tag TEXT NOT NULL,
-        PRIMARY KEY (workflow_id, tag),
-        FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
-      );
-    `);
-    db.exec(`INSERT INTO workflow_tags_old SELECT * FROM workflow_tags;`);
-    db.exec(`DROP TABLE workflow_tags;`);
-    db.exec(`ALTER TABLE workflow_tags_old RENAME TO workflow_tags;`);
-    db.exec(`CREATE INDEX idx_workflow_tags_tag ON workflow_tags(tag);`);
   },
 };
 

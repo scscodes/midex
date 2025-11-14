@@ -205,7 +205,7 @@ const migration: Migration = {
             'description', new.description,
             'content_length', length(new.content),
             'tags', new.tags,
-            'complexity_hint', new.complexity_hint,
+            'complexity', new.complexity,
             'path', new.path
           )
         );
@@ -225,7 +225,7 @@ const migration: Migration = {
             'description', old.description,
             'content_length', length(old.content),
             'tags', old.tags,
-            'complexity_hint', old.complexity_hint,
+            'complexity', old.complexity,
             'path', old.path
           ),
           json_object(
@@ -233,7 +233,7 @@ const migration: Migration = {
             'description', new.description,
             'content_length', length(new.content),
             'tags', new.tags,
-            'complexity_hint', new.complexity_hint,
+            'complexity', new.complexity,
             'path', new.path
           )
         );
@@ -253,7 +253,7 @@ const migration: Migration = {
             'description', old.description,
             'content_length', length(old.content),
             'tags', old.tags,
-            'complexity_hint', old.complexity_hint,
+            'complexity', old.complexity,
             'path', old.path
           )
         );
