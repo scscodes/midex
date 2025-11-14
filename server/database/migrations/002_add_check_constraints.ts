@@ -15,11 +15,21 @@ import type { Migration } from './types.js';
  * - src/schemas/content-schemas.ts (WorkflowFrontmatterSchema)
  */
 const migration: Migration = {
-  version: 3,
+  version: 2,
   name: 'add_check_constraints',
   destructive: false,
 
   up: (db) => {
+    // Skip if baseline already applied (tables already have constraints)
+    const baselineApplied = db
+      .prepare('SELECT 1 FROM schema_migrations WHERE version = 1 AND name = ?')
+      .get('baseline');
+    
+    if (baselineApplied) {
+      // Baseline already has these constraints, skip
+      return;
+    }
+
     // Agents table constraints
     db.exec(`
       CREATE TABLE agents_new (

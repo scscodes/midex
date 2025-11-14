@@ -5,11 +5,20 @@ import type { Migration } from './types.js';
  * Store AI coding tool configurations (MCP servers, agent rules, hooks)
  */
 const migration: Migration = {
-  version: 8,
+  version: 7,
   name: 'add_tool_configs',
   destructive: false,
 
   up: (db) => {
+    // Skip if baseline already applied (tool_configs already exists)
+    const baselineApplied = db
+      .prepare('SELECT 1 FROM schema_migrations WHERE version = 1 AND name = ?')
+      .get('baseline');
+    
+    if (baselineApplied) {
+      return;
+    }
+
     db.exec(`
       -- Create tool_configs table
       CREATE TABLE IF NOT EXISTS tool_configs (

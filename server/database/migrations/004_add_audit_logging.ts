@@ -22,11 +22,20 @@ import type { Migration } from './types.js';
  * - Data forensics
  */
 const migration: Migration = {
-  version: 5,
+  version: 4,
   name: 'add_audit_logging',
   destructive: false,
 
   up: (db) => {
+    // Skip if baseline already applied (audit_log already exists)
+    const baselineApplied = db
+      .prepare('SELECT 1 FROM schema_migrations WHERE version = 1 AND name = ?')
+      .get('baseline');
+    
+    if (baselineApplied) {
+      return;
+    }
+
     // Create audit log table
     db.exec(`
       CREATE TABLE IF NOT EXISTS audit_log (

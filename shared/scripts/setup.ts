@@ -201,6 +201,7 @@ async function main(): Promise<void> {
   await runner.execute();
 
   console.log('\n✓ Success!');
+  process.exit(0);
 }
 
 main().catch((error) => {

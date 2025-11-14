@@ -20,11 +20,20 @@ import type { Migration } from './types.js';
  *   SELECT * FROM rules_fts WHERE rules_fts MATCH '"code quality"';
  */
 const migration: Migration = {
-  version: 4,
+  version: 3,
   name: 'add_full_text_search',
   destructive: false,
 
   up: (db) => {
+    // Skip if baseline already applied (FTS tables already exist)
+    const baselineApplied = db
+      .prepare('SELECT 1 FROM schema_migrations WHERE version = 1 AND name = ?')
+      .get('baseline');
+    
+    if (baselineApplied) {
+      return;
+    }
+
     // Create FTS5 virtual table for agents
     db.exec(`
       CREATE VIRTUAL TABLE agents_fts USING fts5(

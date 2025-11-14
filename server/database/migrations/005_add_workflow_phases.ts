@@ -5,11 +5,20 @@ import type { Migration } from './types.js';
  * Transforms workflow schema to support phase-based execution model
  */
 const migration: Migration = {
-  version: 6,
+  version: 5,
   name: 'add_workflow_phases',
   destructive: false,
 
   up: (db) => {
+    // Skip if baseline already applied (phases column already exists)
+    const baselineApplied = db
+      .prepare('SELECT 1 FROM schema_migrations WHERE version = 1 AND name = ?')
+      .get('baseline');
+    
+    if (baselineApplied) {
+      return;
+    }
+
     // Add phases column to workflows table
     // Since migration 001 already creates 'complexity' column, we just need to add phases
     db.exec(`

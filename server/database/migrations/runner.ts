@@ -10,6 +10,7 @@ export class MigrationRunner {
   constructor(db: Database) {
     this.db = db;
     this.ensureMigrationsTable();
+    this.handleBaselineTransition();
   }
 
   /**
@@ -55,10 +56,40 @@ export class MigrationRunner {
   }
 
   /**
+   * Handle baseline transition for existing databases
+   * If old migrations (1-8) are applied, mark baseline (1) as applied
+   */
+  private handleBaselineTransition(): void {
+    const applied = this.getAppliedMigrations();
+    
+    // Check if we have old migrations (versions 1-8 with old names)
+    const oldMigrationNames = new Set([
+      'initial_content_schema',
+      'normalize_tags',
+      'add_check_constraints',
+      'add_full_text_search',
+      'add_audit_logging',
+      'add_workflow_phases',
+      'add_execution_lifecycle',
+      'add_tool_configs',
+    ]);
+    
+    const hasOldMigrations = applied.some(m => oldMigrationNames.has(m.name));
+    const hasBaseline = applied.some(m => m.version === 1 && m.name === 'baseline');
+    
+    // If we have old migrations but no baseline, mark baseline as applied
+    if (hasOldMigrations && !hasBaseline) {
+      this.db
+        .prepare('INSERT OR IGNORE INTO schema_migrations (version, name) VALUES (?, ?)')
+        .run(1, 'baseline');
+    }
+  }
+
+  /**
    * Apply a single migration
    */
   private applyMigration(migration: Migration): void {
-    // Validate version is next in sequence
+    // Validate version is next in sequence from current DB state
     const currentVersion = this.getCurrentVersion();
     if (migration.version !== currentVersion + 1) {
       throw new Error(
@@ -100,12 +131,29 @@ export class MigrationRunner {
     // Sort migrations by version
     const sorted = [...migrations].sort((a, b) => a.version - b.version);
 
-    // Validate sequential versions
-    for (let i = 0; i < sorted.length; i++) {
-      if (sorted[i]!.version !== i + 1) {
+    // Validate that migrations are sequential from the current database state
+    // Allow gaps in migration files (old migrations may be removed)
+    const currentVersion = this.getCurrentVersion();
+    const pendingMigrations = sorted.filter(m => !this.isMigrationApplied(m.version));
+    
+    if (pendingMigrations.length > 0) {
+      // Check that pending migrations are sequential from current version
+      const firstPending = pendingMigrations[0]!;
+      if (firstPending.version !== currentVersion + 1) {
         throw new Error(
-          `Migration versions must be sequential starting from 1. Found gap at version ${i + 1}`
+          `Migration versions must be sequential from current database state. ` +
+          `Current version: ${currentVersion}, but found migration ${firstPending.version} (${firstPending.name})`
         );
+      }
+      
+      // Validate that pending migrations are sequential with each other
+      for (let i = 0; i < pendingMigrations.length - 1; i++) {
+        if (pendingMigrations[i]!.version + 1 !== pendingMigrations[i + 1]!.version) {
+          throw new Error(
+            `Migration versions must be sequential. Found gap between ` +
+            `${pendingMigrations[i]!.version} and ${pendingMigrations[i + 1]!.version}`
+          );
+        }
       }
     }
 
