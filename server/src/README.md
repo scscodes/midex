@@ -17,17 +17,26 @@ server/src/
 │   ├── loader.ts             # Load: persist to database
 │   ├── conflict.ts           # Conflict resolution
 │   ├── hash.ts               # SHA-256 hashing
-│   └── validator.ts          # Zod validation wrapper
+│   ├── validator.ts          # Zod validation wrapper
+│   └── project-association.ts # Project association manager
 │
 ├── plugins/                  # Resource plugins
 │   ├── content.ts            # Agents/rules/workflows
 │   ├── projects.ts           # Project discovery/association
 │   └── tool-configs/         # AI tool configurations
+│       ├── README.md         # Comprehensive documentation
 │       ├── plugin.ts         # Main orchestrator
-│       ├── transformer.ts    # Config transformation
-│       ├── utils.ts          # Shared utilities
+│       ├── transformer.ts    # Config transformation + secret redaction
+│       ├── utils.ts          # Shared utilities (tool detection, paths)
 │       ├── types.ts          # Type definitions
-│       └── extractors/       # Tool-specific extractors
+│       ├── extractors/       # Tool-specific extractors
+│       │   ├── claude-code.ts # Claude Code CLI
+│       │   ├── cursor.ts     # Cursor IDE
+│       │   ├── windsurf.ts   # Windsurf (Codeium)
+│       │   ├── vscode.ts     # VS Code + Copilot
+│       │   └── intellij.ts   # IntelliJ (Junie)
+│       └── __tests__/
+│           └── validation.test.ts # Comprehensive test suite
 │
 └── schemas/                  # Validation schemas
     ├── content-schemas.ts    # Content types
@@ -173,42 +182,35 @@ Discovers and tracks projects across sessions.
 
 ### ToolConfigPlugin
 
-Discovers and manages AI coding tool configurations.
+Discovers and manages AI coding tool configurations across editors and IDEs.
 
 **Supported Tools:**
-- Claude Code (CLI), Cursor, Windsurf, VS Code, IntelliJ IDEA
+- Claude Code (CLI) - MCP, hooks, slash commands, agent rules
+- Cursor - MCP, settings, multi-file rules
+- Windsurf (Codeium) - MCP, multi-file rules, ignore patterns
+- VS Code (Copilot) - MCP, Copilot instructions, settings
+- IntelliJ (Junie) - MCP (limited)
 
-**Extraction:**
-- Detects tools via directory markers (`.claude/`, `.cursor/`, etc.)
-- Extracts MCP server configs, agent rules, hooks, settings
-- OS-agnostic path resolution (Windows/macOS/Linux)
-- Supports both project-level and user-level configs
+**Key Features:**
+- **Official patterns only**: All configs based on vendor documentation
+- **Cross-platform**: Windows, macOS, Linux support
+- **Dual-level**: Project and user-level config extraction
+- **Security**: Secret redaction with configurable patterns
+- **Incremental sync**: Hash-based change detection
 
-**Transformation:**
-- Redacts secrets using pattern-based detection (API_KEY, TOKEN, etc.)
-- Parses JSON configs and extracts metadata (server count, env vars, auto-approval)
-- Generates unique names with hash prefixes
+**Configuration Files Extracted:**
 
-**Loading:**
-- Persists to `tool_configs` table
-- Hash-based change detection for incremental sync
-- Upserts on conflict (by name)
+*Claude Code:* `.mcp.json`, `.claude/settings.json`, `.claude/commands/*.md`, `CLAUDE.md`
 
-**Configuration:**
-Runtime behavior controlled via `.tool-config.json`:
-```json
-{
-  "enabled": true,
-  "discovery": { "projectLevel": true, "userLevel": false },
-  "extraction": {
-    "tools": {
-      "claude-code": { "enabled": true, "priority": 1 }
-    },
-    "configTypes": { "mcp_servers": true, "agent_rules": true, "hooks": true }
-  },
-  "security": { "redactSecrets": true, "secretPatterns": ["API_KEY"] }
-}
-```
+*Cursor:* `.cursor/mcp.json`, `.cursor/settings.json`, `.cursor/rules/*.mdc`, `.cursorrules`
+
+*Windsurf:* `.windsurf/mcp.json`, `.windsurf/rules/*.md`, `.windsurfrules`, `.codeiumignore`
+
+*VS Code:* `.github/copilot-instructions.md`, `*.instructions.md`, `.vscode/settings.json`
+
+*IntelliJ:* `.junie/mcp/mcp.json`
+
+**For detailed documentation, see:** [Tool Config Plugin README](./plugins/tool-configs/README.md)
 
 ## Pipeline Components
 
