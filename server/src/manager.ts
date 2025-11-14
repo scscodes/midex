@@ -14,6 +14,15 @@ import type {
 import { ContentPlugin } from './plugins/content.js';
 import { ProjectsPlugin } from './plugins/projects.js';
 import { ToolConfigPlugin } from './plugins/tool-configs/index.js';
+import {
+  AgentRowSchema,
+  RuleRowSchema,
+  WorkflowRowSchema,
+  ProjectAssociationRowSchema,
+  ToolConfigRowSchema,
+} from '../utils/database-schemas.js';
+import type { ZodSchema } from 'zod';
+import { validateDatabaseRow, validateDatabaseRows } from '../utils/validation.js';
 
 export interface ResourceManagerOptions {
   database: DB;
@@ -100,7 +109,7 @@ export class ResourceManager {
   }
 
   /**
-   * Query resources from database
+   * Query resources from database with validation
    */
   async query<T = unknown>(
     resourceType: string,
@@ -129,18 +138,48 @@ export class ResourceManager {
     params.push(limit, offset);
 
     const rows = this.database.prepare(sql).all(...params);
+    
+    // Validate rows based on resource type
+    const schema = this.getRowSchema(resourceType);
+    if (schema) {
+      return validateDatabaseRows(schema, rows) as T[];
+    }
+    
     return rows as T[];
   }
 
   /**
-   * Get single resource by name
+   * Get single resource by name with validation
    */
   async get<T = unknown>(resourceType: string, name: string): Promise<T | null> {
     const table = this.getTableName(resourceType);
     const sql = `SELECT * FROM ${table} WHERE name = ?`;
 
     const row = this.database.prepare(sql).get(name);
-    return (row as T) || null;
+    if (!row) return null;
+
+    // Validate row based on resource type
+    const schema = this.getRowSchema(resourceType);
+    if (schema) {
+      return validateDatabaseRow(schema, row as Record<string, unknown>) as T;
+    }
+
+    return row as T;
+  }
+
+  /**
+   * Get Zod schema for resource type
+   */
+  private getRowSchema(resourceType: string): ZodSchema | undefined {
+    const mapping: Record<string, ZodSchema> = {
+      agent: AgentRowSchema,
+      rule: RuleRowSchema,
+      workflow: WorkflowRowSchema,
+      project: ProjectAssociationRowSchema,
+      tool_config: ToolConfigRowSchema,
+    };
+
+    return mapping[resourceType];
   }
 
   /**

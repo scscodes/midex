@@ -5,8 +5,8 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
-import { resolve } from 'path';
 import { mkdtempSync, rmSync } from 'fs';
+import { resolve } from 'path';
 import { tmpdir } from 'os';
 import { WorkflowLifecycleManager } from './workflow-lifecycle-manager';
 import { ExecutionLogger } from './execution-logger';
@@ -127,7 +127,7 @@ describe('MCP Lifecycle Integration', () => {
     `);
 
     lifecycleManager = new WorkflowLifecycleManager(db);
-    executionLogger = new ExecutionLogger(db, resolve(process.cwd(), './content', 'contracts'));
+    executionLogger = new ExecutionLogger(db);
     artifactStore = new ArtifactStore(db);
     findingStore = new FindingStore(db);
   });

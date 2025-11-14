@@ -15,6 +15,8 @@ import type {
   WorkflowExecution,
   WorkflowStep,
 } from '../lifecycle/workflow-lifecycle-manager.js';
+import { WorkflowExecutionRowSchema } from '../../utils/database-schemas.js';
+import { validateDatabaseRow, validateDatabaseRows } from '../../utils/validation.js';
 
 export interface QueryFindingsParams extends QueryFindingsOptions {}
 
@@ -106,9 +108,12 @@ export class QueryTools {
     }
 
     const stmt = this.db.prepare(query);
-    const rows = stmt.all(...queryParams) as any[];
+    const rows = stmt.all(...queryParams);
 
-    return rows.map(row => this.mapExecutionRow(row));
+    return rows.map((row) => {
+      const validatedRow = validateDatabaseRow(WorkflowExecutionRowSchema, row as Record<string, unknown>);
+      return this.mapExecutionRow(validatedRow);
+    });
   }
 
   /**
@@ -193,14 +198,14 @@ export class QueryTools {
     return this.findingStore.getFindingsForProject(projectId, options);
   }
 
-  // Helper method to map execution row
-  private mapExecutionRow(row: any): WorkflowExecution {
+  // Helper method to map validated execution row
+  private mapExecutionRow(row: import('../../utils/database-schemas.js').WorkflowExecutionRow): WorkflowExecution {
     return {
       id: row.id,
       workflowName: row.workflow_name,
       projectId: row.project_id,
       state: row.state,
-      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+      metadata: row.metadata,
       timeoutMs: row.timeout_ms,
       startedAt: row.started_at,
       completedAt: row.completed_at,

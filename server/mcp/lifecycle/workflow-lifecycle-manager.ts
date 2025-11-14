@@ -5,6 +5,13 @@
 
 import type { Database as DB } from 'better-sqlite3';
 import { randomUUID } from 'crypto';
+import {
+  WorkflowExecutionRowSchema,
+  WorkflowStepRowSchema,
+  type WorkflowExecutionRow,
+  type WorkflowStepRow,
+} from '../../utils/database-schemas.js';
+import { validateDatabaseRow, validateDatabaseRows } from '../../utils/validation.js';
 
 // State machine states
 export type WorkflowExecutionState = 'pending' | 'running' | 'completed' | 'failed' | 'timeout' | 'escalated';
@@ -104,10 +111,11 @@ export class WorkflowLifecycleManager {
       SELECT * FROM workflow_executions WHERE id = ?
     `);
 
-    const row = stmt.get(id) as any;
+    const row = stmt.get(id);
     if (!row) return undefined;
 
-    return this.mapExecutionRow(row);
+    const validatedRow = validateDatabaseRow(WorkflowExecutionRowSchema, row as Record<string, unknown>);
+    return this.mapExecutionRow(validatedRow);
   }
 
   /**
@@ -128,9 +136,12 @@ export class WorkflowLifecycleManager {
     query += ' ORDER BY created_at DESC';
 
     const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
+    const rows = stmt.all(...params);
 
-    return rows.map(row => this.mapExecutionRow(row));
+    return rows.map((row) => {
+      const validatedRow = validateDatabaseRow(WorkflowExecutionRowSchema, row as Record<string, unknown>);
+      return this.mapExecutionRow(validatedRow);
+    });
   }
 
   /**
@@ -212,10 +223,11 @@ export class WorkflowLifecycleManager {
       SELECT * FROM workflow_steps WHERE id = ?
     `);
 
-    const row = stmt.get(id) as any;
+    const row = stmt.get(id);
     if (!row) return undefined;
 
-    return this.mapStepRow(row);
+    const validatedRow = validateDatabaseRow(WorkflowStepRowSchema, row as Record<string, unknown>);
+    return this.mapStepRow(validatedRow);
   }
 
   /**
@@ -228,8 +240,11 @@ export class WorkflowLifecycleManager {
       ORDER BY created_at ASC
     `);
 
-    const rows = stmt.all(executionId) as any[];
-    return rows.map(row => this.mapStepRow(row));
+    const rows = stmt.all(executionId);
+    return rows.map((row) => {
+      const validatedRow = validateDatabaseRow(WorkflowStepRowSchema, row as Record<string, unknown>);
+      return this.mapStepRow(validatedRow);
+    });
   }
 
   /**
@@ -336,11 +351,12 @@ export class WorkflowLifecycleManager {
         AND (julianday('now') - julianday(started_at)) * 86400.0 * 1000.0 > timeout_ms
     `);
 
-    const rows = stmt.all() as any[];
+    const rows = stmt.all();
     const timedOut: WorkflowExecution[] = [];
 
     for (const row of rows) {
-      const execution = this.mapExecutionRow(row);
+      const validatedRow = validateDatabaseRow(WorkflowExecutionRowSchema, row as Record<string, unknown>);
+      const execution = this.mapExecutionRow(validatedRow);
       try {
         this.transitionWorkflowState(
           execution.id,
@@ -386,13 +402,13 @@ export class WorkflowLifecycleManager {
   }
 
   // Helper methods for row mapping
-  private mapExecutionRow(row: any): WorkflowExecution {
-    const execution = {
+  private mapExecutionRow(row: WorkflowExecutionRow): WorkflowExecution {
+    const execution: WorkflowExecution = {
       id: row.id,
       workflowName: row.workflow_name,
       projectId: row.project_id,
       state: row.state,
-      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+      metadata: row.metadata,
       timeoutMs: row.timeout_ms,
       startedAt: row.started_at,
       completedAt: row.completed_at,
@@ -405,24 +421,24 @@ export class WorkflowLifecycleManager {
     if (execution.startedAt && execution.timeoutMs) {
       const startTime = new Date(execution.startedAt).getTime();
       const timeoutAt = new Date(startTime + execution.timeoutMs);
-      (execution as any).timeoutAt = timeoutAt.toISOString();
+      (execution as WorkflowExecution & { timeoutAt?: string }).timeoutAt = timeoutAt.toISOString();
     }
 
     return execution;
   }
 
-  private mapStepRow(row: any): WorkflowStep {
+  private mapStepRow(row: WorkflowStepRow): WorkflowStep {
     return {
       id: row.id,
       executionId: row.execution_id,
       stepName: row.step_name,
       phaseName: row.phase_name,
       state: row.state,
-      dependsOn: row.depends_on ? JSON.parse(row.depends_on) : null,
+      dependsOn: row.depends_on,
       startedAt: row.started_at,
       completedAt: row.completed_at,
       error: row.error,
-      output: row.output ? JSON.parse(row.output) : null,
+      output: row.output,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

@@ -5,6 +5,8 @@
 
 import type { Database as DB } from 'better-sqlite3';
 import { randomUUID } from 'crypto';
+import { FindingRowSchema, type FindingRow } from '../../utils/database-schemas.js';
+import { validateDatabaseRow, validateDatabaseRows } from '../../utils/validation.js';
 
 export type FindingSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical';
 
@@ -96,10 +98,11 @@ export class FindingStore {
       SELECT * FROM findings WHERE id = ?
     `);
 
-    const row = stmt.get(id) as any;
+    const row = stmt.get(id);
     if (!row) return undefined;
 
-    return this.mapFindingRow(row);
+    const validatedRow = validateDatabaseRow(FindingRowSchema, row as Record<string, unknown>);
+    return this.mapFindingRow(validatedRow);
   }
 
   /**
@@ -171,9 +174,12 @@ export class FindingStore {
     }
 
     const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
+    const rows = stmt.all(...params);
 
-    return rows.map(row => this.mapFindingRow(row));
+    return rows.map((row) => {
+      const validatedRow = validateDatabaseRow(FindingRowSchema, row as Record<string, unknown>);
+      return this.mapFindingRow(validatedRow);
+    });
   }
 
   /**
@@ -240,9 +246,12 @@ export class FindingStore {
     }
 
     const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
+    const rows = stmt.all(...params);
 
-    return rows.map(row => this.mapFindingRow(row));
+    return rows.map((row) => {
+      const validatedRow = validateDatabaseRow(FindingRowSchema, row as Record<string, unknown>);
+      return this.mapFindingRow(validatedRow);
+    });
   }
 
   /**
@@ -300,9 +309,9 @@ export class FindingStore {
   }
 
   /**
-   * Map database row to Finding
+   * Map validated database row to Finding
    */
-  private mapFindingRow(row: any): Finding {
+  private mapFindingRow(row: FindingRow): Finding {
     return {
       id: row.id,
       executionId: row.execution_id,
@@ -311,11 +320,11 @@ export class FindingStore {
       category: row.category,
       title: row.title,
       description: row.description,
-      tags: row.tags ? JSON.parse(row.tags) : null,
+      tags: row.tags,
       isGlobal: row.is_global === 1,
       projectId: row.project_id,
-      location: row.location ? JSON.parse(row.location) : null,
-      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+      location: row.location,
+      metadata: row.metadata,
       createdAt: row.created_at,
     };
   }

@@ -5,6 +5,8 @@
 
 import type { Database as DB } from 'better-sqlite3';
 import { randomUUID } from 'crypto';
+import { ArtifactRowSchema, type ArtifactRow } from '../../utils/database-schemas.js';
+import { validateDatabaseRow, validateDatabaseRows } from '../../utils/validation.js';
 
 export type ArtifactContentType = 'text' | 'markdown' | 'json' | 'binary';
 
@@ -82,10 +84,11 @@ export class ArtifactStore {
       SELECT * FROM artifacts WHERE id = ?
     `);
 
-    const row = stmt.get(id) as any;
+    const row = stmt.get(id);
     if (!row) return undefined;
 
-    return this.mapArtifactRow(row);
+    const validatedRow = validateDatabaseRow(ArtifactRowSchema, row as Record<string, unknown>);
+    return this.mapArtifactRow(validatedRow);
   }
 
   /**
@@ -120,9 +123,12 @@ export class ArtifactStore {
     }
 
     const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
+    const rows = stmt.all(...params);
 
-    return rows.map(row => this.mapArtifactRow(row));
+    return rows.map((row) => {
+      const validatedRow = validateDatabaseRow(ArtifactRowSchema, row as Record<string, unknown>);
+      return this.mapArtifactRow(validatedRow);
+    });
   }
 
   /**
@@ -168,7 +174,7 @@ export class ArtifactStore {
   /**
    * Map database row to Artifact
    */
-  private mapArtifactRow(row: any): Artifact {
+  private mapArtifactRow(row: ArtifactRow): Artifact {
     return {
       id: row.id,
       executionId: row.execution_id,
@@ -177,7 +183,7 @@ export class ArtifactStore {
       contentType: row.content_type,
       content: row.content,
       sizeBytes: row.size_bytes,
-      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+      metadata: row.metadata,
       createdAt: row.created_at,
     };
   }

@@ -1,13 +1,21 @@
 /**
  * ExecutionLogger
  * Idempotent logging for workflow execution with contract validation
+ * Uses Zod schemas for validation (migrated from AJV)
  */
 
 import type { Database as DB } from 'better-sqlite3';
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
-import { Ajv } from 'ajv';
-import type { ValidateFunction } from 'ajv';
+import type { z } from 'zod';
+import {
+  WorkflowInputSchema,
+  WorkflowOutputSchema,
+  StepInputSchema,
+  StepOutputSchema,
+  AgentInputSchema,
+  AgentOutputSchema,
+} from '../orchestrator/schemas.js';
+import { validateOrThrow, DatabaseValidationError, validateDatabaseRow } from '../../utils/validation.js';
+import { ExecutionLogRowSchema, type ExecutionLogRow } from '../../utils/database-schemas.js';
 
 export type LogLayer = 'orchestrator' | 'workflow' | 'step' | 'agent_task';
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -38,44 +46,24 @@ export interface ExecutionLog {
 
 /**
  * ExecutionLogger with contract validation and idempotency
+ * Uses Zod schemas for validation
  */
 export class ExecutionLogger {
-  private ajv: Ajv;
-  private validators: Map<string, ValidateFunction> = new Map();
-
-  constructor(
-    private db: DB,
-    private contractsPath: string = resolve(process.cwd(), './content', 'contracts')
-  ) {
-    this.ajv = new Ajv({ allErrors: true, strict: false, validateSchema: false });
-    this.loadContractSchemas();
-  }
+  constructor(private db: DB) {}
 
   /**
-   * Load all contract schemas from content/contracts/
+   * Get Zod schema for contract validation by name
    */
-  private loadContractSchemas(): void {
-    const contractFiles = [
-      'WorkflowInput.schema.json',
-      'WorkflowOutput.schema.json',
-      'StepInput.schema.json',
-      'StepOutput.schema.json',
-      'AgentInput.schema.json',
-      'AgentOutput.schema.json',
-    ];
-
-    for (const file of contractFiles) {
-      try {
-        const schemaPath = resolve(this.contractsPath, file);
-        const schema = JSON.parse(readFileSync(schemaPath, 'utf-8'));
-        const schemaName = file.replace('.schema.json', '');
-
-        const validator = this.ajv.compile(schema);
-        this.validators.set(schemaName, validator);
-      } catch (error) {
-        console.warn(`Failed to load contract schema ${file}:`, error);
-      }
-    }
+  private getContractSchema(schemaName: string): z.ZodSchema | null {
+    const schemas: Record<string, z.ZodSchema> = {
+      WorkflowInput: WorkflowInputSchema,
+      WorkflowOutput: WorkflowOutputSchema,
+      StepInput: StepInputSchema,
+      StepOutput: StepOutputSchema,
+      AgentInput: AgentInputSchema,
+      AgentOutput: AgentOutputSchema,
+    };
+    return schemas[schemaName] || null;
   }
 
   /**
@@ -84,22 +72,13 @@ export class ExecutionLogger {
   private validateContract(
     schemaName: string,
     data: Record<string, unknown>
-  ): { valid: boolean; errors?: string } {
-    const validator = this.validators.get(schemaName);
-    if (!validator) {
-      return {
-        valid: false,
-        errors: `Contract schema '${schemaName}' not found`,
-      };
+  ): void {
+    const schema = this.getContractSchema(schemaName);
+    if (!schema) {
+      throw new DatabaseValidationError(`Contract schema '${schemaName}' not found`);
     }
 
-    const valid = validator(data);
-    if (!valid && validator.errors) {
-      const errors = this.ajv.errorsText(validator.errors);
-      return { valid: false, errors };
-    }
-
-    return { valid: true };
+    validateOrThrow(schema, data, schemaName);
   }
 
   /**
@@ -123,24 +102,14 @@ export class ExecutionLogger {
     if (options.contractInput) {
       const inputSchemaName = this.getInputSchemaName(options.layer);
       if (inputSchemaName) {
-        const result = this.validateContract(inputSchemaName, options.contractInput);
-        if (!result.valid) {
-          throw new Error(
-            `Contract validation failed for ${inputSchemaName}: ${result.errors}`
-          );
-        }
+        this.validateContract(inputSchemaName, options.contractInput);
       }
     }
 
     if (options.contractOutput) {
       const outputSchemaName = this.getOutputSchemaName(options.layer);
       if (outputSchemaName) {
-        const result = this.validateContract(outputSchemaName, options.contractOutput);
-        if (!result.valid) {
-          throw new Error(
-            `Contract validation failed for ${outputSchemaName}: ${result.errors}`
-          );
-        }
+        this.validateContract(outputSchemaName, options.contractOutput);
       }
     }
 
@@ -179,10 +148,11 @@ export class ExecutionLogger {
       WHERE execution_id = ? AND layer = ? AND layer_id = ?
     `);
 
-    const row = stmt.get(executionId, layer, layerId) as any;
+    const row = stmt.get(executionId, layer, layerId);
     if (!row) return undefined;
 
-    return this.mapLogRow(row);
+    const validatedRow = validateDatabaseRow(ExecutionLogRowSchema, row as Record<string, unknown>);
+    return this.mapLogRow(validatedRow);
   }
 
   /**
@@ -193,10 +163,11 @@ export class ExecutionLogger {
       SELECT * FROM execution_logs WHERE id = ?
     `);
 
-    const row = stmt.get(id) as any;
+    const row = stmt.get(id);
     if (!row) return undefined;
 
-    return this.mapLogRow(row);
+    const validatedRow = validateDatabaseRow(ExecutionLogRowSchema, row as Record<string, unknown>);
+    return this.mapLogRow(validatedRow);
   }
 
   /**
@@ -231,9 +202,12 @@ export class ExecutionLogger {
     }
 
     const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
+    const rows = stmt.all(...params);
 
-    return rows.map(row => this.mapLogRow(row));
+    return rows.map((row) => {
+      const validatedRow = validateDatabaseRow(ExecutionLogRowSchema, row as Record<string, unknown>);
+      return this.mapLogRow(validatedRow);
+    });
   }
 
   /**
@@ -263,9 +237,9 @@ export class ExecutionLogger {
   }
 
   /**
-   * Map database row to ExecutionLog
+   * Map validated database row to ExecutionLog
    */
-  private mapLogRow(row: any): ExecutionLog {
+  private mapLogRow(row: ExecutionLogRow): ExecutionLog {
     return {
       id: row.id,
       executionId: row.execution_id,
@@ -273,9 +247,9 @@ export class ExecutionLogger {
       layerId: row.layer_id,
       logLevel: row.log_level,
       message: row.message,
-      context: row.context ? JSON.parse(row.context) : null,
-      contractInput: row.contract_input ? JSON.parse(row.contract_input) : null,
-      contractOutput: row.contract_output ? JSON.parse(row.contract_output) : null,
+      context: row.context,
+      contractInput: row.contract_input,
+      contractOutput: row.contract_output,
       timestamp: row.timestamp,
     };
   }
