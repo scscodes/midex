@@ -1,9 +1,9 @@
 /**
  * Claude Code Extractor
- * Extracts MCP servers, hooks, and agent rules from Claude Code projects
+ * Extracts MCP servers, hooks, slash commands, and agent rules from Claude Code projects
  */
 
-import { existsSync, readFileSync, statSync } from 'fs';
+import { existsSync, readFileSync, statSync, readdirSync } from 'fs';
 import { join, basename } from 'path';
 import { computeHash } from '../../../lib/hash.js';
 import { getUserConfigPath } from '../utils.js';
@@ -28,6 +28,18 @@ export class ClaudeCodeExtractor implements ToolExtractor {
       configs.push(this.readConfig(settingsPath, 'hooks'));
     }
 
+    // .claude/commands/*.md - Slash commands (treat as settings)
+    const commandsDir = join(projectPath, '.claude', 'commands');
+    if (existsSync(commandsDir) && statSync(commandsDir).isDirectory()) {
+      const files = readdirSync(commandsDir);
+      for (const file of files) {
+        if (file.endsWith('.md') && !file.startsWith('_')) {
+          const filePath = join(commandsDir, file);
+          configs.push(this.readConfig(filePath, 'settings'));
+        }
+      }
+    }
+
     // CLAUDE.md - Agent rules/instructions
     const claudeMdPath = join(projectPath, 'CLAUDE.md');
     if (existsSync(claudeMdPath)) {
@@ -48,7 +60,7 @@ export class ClaudeCodeExtractor implements ToolExtractor {
     return configs;
   }
 
-  private readConfig(filePath: string, configType: 'mcp_servers' | 'hooks' | 'agent_rules'): ExtractedConfig {
+  private readConfig(filePath: string, configType: 'mcp_servers' | 'hooks' | 'agent_rules' | 'settings'): ExtractedConfig {
     const content = readFileSync(filePath, 'utf-8');
     const stats = statSync(filePath);
 
