@@ -61,7 +61,7 @@ tags: [base, global]
 
 ## Agent Persona Standards
 - **Frontmatter** minimal: `name`, `description` (no other keys).
-- **Contracts**: reference `.mide-lite/contracts/` for inputs/outputs.
+- **Contracts**: reference `server/content/contracts/` for inputs/outputs.
 - **Concise**: no dead sections; avoid project-specific paths.
 
 
@@ -71,7 +71,7 @@ tags: [base, global]
 
 
 ## Tech/Rules References
-- Base: `.mide-lite/rules/base_rules.md`
-- Language: `.mide-lite/rules/typescript.md`, `.mide-lite/rules/javascript.md`, `.mide-lite/rules/python.md`
-- Workflows: `.mide-lite/workflows/*`
-- Specialized: `.mide-lite/rules/security.md`, `.mide-lite/rules/testing.md`, `.mide-lite/rules/hygiene.md`
+- Base: `server/content/rules/base_rules.md`
+- Language: `server/content/rules/typescript.md`, `server/content/rules/javascript.md`, `server/content/rules/python.md`
+- Workflows: `server/content/workflows/*`
+- Specialized: `server/content/rules/security.md`, `server/content/rules/testing.md`, `server/content/rules/hygiene.md`

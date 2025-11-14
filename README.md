@@ -57,8 +57,8 @@ npm run mcp:start
 
 ## Environment Variables
 
-- `MIDE_DB_PATH`: Database path (default: `./data/app.db`)
-- `MIDE_CONTENT_PATH`: Content directory (default: `.mide-lite`)
+- `MIDE_DB_PATH`: Database path (default: `./shared/database/app.db`)
+- `MIDE_CONTENT_PATH`: Content directory (default: `server/content`)
 - `MIDE_DISCOVERY_METHOD`: `autodiscover` (default) or `manual`
 - `MIDE_PROJECT_PATH`: Target path for manual project discovery
 
@@ -92,7 +92,7 @@ npm run mcp:start
 ## Content Structure
 
 ```
-.mide-lite/
+server/content/
 ├── agents/       # Specialized agent personas (markdown with frontmatter)
 ├── workflows/    # Workflow definitions with phases and steps
 ├── rules/        # Code quality and style rules

@@ -3,7 +3,8 @@
  * Handles project discovery and association
  */
 
-import { readdir, stat, readFile } from 'fs/promises';
+import { readdir, stat, readFile, access } from 'fs/promises';
+import { constants } from 'fs';
 import { join, basename } from 'path';
 import { existsSync } from 'fs';
 import type {
@@ -37,6 +38,14 @@ export class ProjectsPlugin implements ResourcePlugin<ProjectData> {
   async extract(options: ExtractOptions): Promise<RawResource[]> {
     const { basePath } = options;
     const resources: RawResource[] = [];
+
+    // Check if basePath exists before attempting to extract
+    try {
+      await access(basePath, constants.F_OK);
+    } catch {
+      // Directory doesn't exist - return empty array (graceful degradation)
+      return resources;
+    }
 
     try {
       const entries = await readdir(basePath, { withFileTypes: true });

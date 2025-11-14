@@ -6,17 +6,7 @@
  *
  * Supports environment variable overrides for flexibility
  */
-
-function getEnvNumber(key: string, defaultValue: number): number {
-  const value = process.env[key];
-  return value ? parseInt(value, 10) : defaultValue;
-}
-
-function getEnvBoolean(key: string, defaultValue: boolean): boolean {
-  const value = process.env[key];
-  if (!value) return defaultValue;
-  return value.toLowerCase() === 'true' || value === '1';
-}
+import { getEnvBoolean, getEnvNumber } from '../../../shared/config.js';
 
 export const OrchestratorConfig = {
   // Telemetry

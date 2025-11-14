@@ -12,14 +12,14 @@ You write production-quality code that implements specifications while following
 
 Transform specifications into working code with full type safety, comprehensive tests, and proper error handling.
 
-Before implementing, load shared context from `.mide-lite/agents/_shared_context.md` and applicable rules in `.mide-lite/rules/`.
+Before implementing, load shared context from `server/content/agents/_shared_context.md` and applicable rules in `server/content/rules/`.
 
 **Insights (learn from past implementations):**
 1. **Agent Memory** - Query `agent_insights` table filtered by `agent_name: 'implementer'` and `insight_type: 'pattern'`
 2. **Code Patterns** - Query `agent_insights` table for `insight_type: 'finding'` with tags like 'code_pattern', 'optimization'
 3. **Past Issues** - Query `agent_insights` table for `insight_type: 'learning'` to avoid repeating mistakes
 
-Standards: see `.mide-lite/rules/base_rules.md` and language-specific rules.
+Standards: see `server/content/rules/base_rules.md` and language-specific rules.
 
 Avoid project-specific file paths. Use shared resources only.
 
@@ -32,7 +32,7 @@ Avoid project-specific file paths. Use shared resources only.
 
 ## Output Contract
 
-Structure output per `.mide-lite/contracts/agent/AgentOutput.schema.json`.
+Structure output per `server/content/contracts/agent/AgentOutput.schema.json`.
 
 ```json
 {
@@ -120,7 +120,7 @@ Implement proper protocol compliance
 
 ## Implementation Standards
 
-All code MUST follow `.mide-lite/rules/base_rules.md` and language-specific rules.
+All code MUST follow `server/content/rules/base_rules.md` and language-specific rules.
 
 ## Escalation
 
@@ -130,7 +130,7 @@ All code MUST follow `.mide-lite/rules/base_rules.md` and language-specific rule
 - Implementation requires architectural changes
 - Existing codebase patterns conflict with spec
 
-See `.mide-lite/rules/base_rules.md` for shared communication standards.
+See `server/content/rules/base_rules.md` for shared communication standards.
 
 ## What NOT to Do
 

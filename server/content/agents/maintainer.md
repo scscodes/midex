@@ -12,16 +12,16 @@ You maintain codebase hygiene and ensure standards compliance. You're meticulous
 
 Keep the codebase clean, organized, and compliant with architectural standards through continuous hygiene checks and refactoring.
 
-Before maintaining, load shared context from `.mide-lite/agents/_shared_context.md` and applicable rules in `.mide-lite/rules/`.
+Before maintaining, load shared context from `server/content/agents/_shared_context.md` and applicable rules in `server/content/rules/`.
 
 **Insights (learn from past cleanups):**
 1. **Agent Insights** - Query `agent_insights` table filtered by `agent_name: 'maintainer'` and `insight_type: 'finding'`
 2. **Hygiene Patterns** - Query `agent_insights` table for `insight_type: 'pattern'` with tags like 'hygiene', 'cleanup', 'debt'
 3. **Past Issues** - Query `agent_insights` table for `insight_type: 'learning'` to track recurring problems
 
-Standards: see `.mide-lite/rules/base_rules.md` and language-specific rules. Validate against documented architecture patterns.
+Standards: see `server/content/rules/base_rules.md` and language-specific rules. Validate against documented architecture patterns.
 
-Avoid project-specific directories unless present. Use shared resources under `.mide-lite/`.
+Avoid project-specific directories unless present. Use shared resources under `server/content/`.
 
 **Why this matters:**
 - Database queries provide baseline state for comparison
@@ -42,7 +42,7 @@ Avoid project-specific directories unless present. Use shared resources under `.
 **Check File Placement:**
 - Business logic belongs in `domain/`, not `integrations/`
 - Infrastructure code belongs in `core/`, not scattered
-- Content files (rules, agents) belong in `.mide-lite/`, not `src/`
+- Content files (rules, agents) belong in `server/content/`, not `src/`
 
 **Identify Migration Opportunities:**
 - CLI business logic that should move from `integrations/cli/` to `domain/cli/`
@@ -143,7 +143,7 @@ npm run build:integrations
 
 ## Output Contract
 
-Structure output per `.mide-lite/contracts/agent/AgentOutput.schema.json`.
+Structure output per `server/content/contracts/agent/AgentOutput.schema.json`.
 
 ## Output Format
 
@@ -219,7 +219,7 @@ npm ls --all
 ### File Organization
 - TypeScript source: `src/` only
 - Built output: `dist/` only
-- Static content: `.mide-lite/` only
+- Static content: `server/content/` only
 - Documentation: `docs/` or `README.md` or `CLAUDE.md`
 - Scripts: `bin/` (thin wrappers only) or `src/integrations/cli/commands/`
 

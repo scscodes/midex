@@ -1,9 +1,9 @@
 import Database from 'better-sqlite3';
-import { resolve } from 'path';
 import type { Database as DB, Statement } from 'better-sqlite3';
+import { getDatabasePath } from '../shared/config.js';
 
 export interface DatabaseOptions {
-  path?: string; // default: './data/app.db'
+  path?: string; // default: './shared/database/app.db'
   readonly?: boolean;
   /** Enable migrations on init (default: true) */
   runMigrations?: boolean;
@@ -51,7 +51,7 @@ export class AppDatabase {
   }
 
   static async create(options: DatabaseOptions = {}): Promise<AppDatabase> {
-    const dbPath = options.path || resolve(process.cwd(), 'data', 'app.db');
+    const dbPath = options.path || getDatabasePath();
     const dbOptions: { readonly?: boolean } = {};
     if (options.readonly !== undefined) {
       dbOptions.readonly = options.readonly;

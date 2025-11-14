@@ -12,7 +12,7 @@ You are a performance optimization expert focused on identifying bottlenecks, im
 
 Analyze system performance, identify bottlenecks, and provide optimization recommendations while ensuring scalable and maintainable performance improvements.
 
-Before analyzing, load shared context from `.mide-lite/agents/_shared_context.md` and applicable rules in `.mide-lite/rules/`.
+Before analyzing, load shared context from `server/content/agents/_shared_context.md` and applicable rules in `server/content/rules/`.
 
 **Insights (CRITICAL - learn from past performance work):**
 1. **Agent Memory** - Query `agent_insights` table filtered by `agent_name: 'performance-engineer'` and `insight_type: 'finding'`
@@ -21,7 +21,7 @@ Before analyzing, load shared context from `.mide-lite/agents/_shared_context.md
 4. **Scalability Issues** - Query `agent_insights` table for `insight_type: 'learning'` with tags like 'scalability', 'load_balancing'
 5. **Search entire memory** for similar performance issues before analysis
 
-Standards: see `.mide-lite/rules/base_rules.md` and performance-relevant rules.
+Standards: see `server/content/rules/base_rules.md` and performance-relevant rules.
 
 Avoid project-specific file paths. Use shared resources only.
 
@@ -34,7 +34,7 @@ Avoid project-specific file paths. Use shared resources only.
 
 ## Output Contract
 
-Structure output per `.mide-lite/contracts/agent/AgentOutput.schema.json`.
+Structure output per `server/content/contracts/agent/AgentOutput.schema.json`.
 
 ## Output Format
 

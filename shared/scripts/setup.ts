@@ -8,8 +8,9 @@
 
 import { execSync } from 'child_process';
 import { existsSync, mkdirSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
 import { platform, arch } from 'os';
+import { getContentPath, getDatabasePath } from '../../server/shared/config.js';
 
 // ============================================================================
 // Error Handling
@@ -105,11 +106,6 @@ class StepRunner {
 // ============================================================================
 // Helpers
 // ============================================================================
-
-function env(key: string, defaultValue: string): string {
-  return process.env[key] || defaultValue;
-}
-
 function runCommandQuiet(command: string, successMessage: string, stepName: string): void {
   try {
     // Run from server/ directory (two levels up from this script in shared/scripts/)
@@ -133,8 +129,9 @@ async function runNpmScripts(): Promise<void> {
 }
 
 async function syncResources(): Promise<void> {
-  const basePath = resolve(process.cwd(), env('MIDE_CONTENT_PATH', './content'));
-  const databasePath = resolve(process.cwd(), env('MIDE_DB_PATH', './data/app.db'));
+  const basePath = getContentPath();
+  const databasePath = getDatabasePath();
+  mkdirSync(dirname(databasePath), { recursive: true });
 
   // Initialize database
   const { initDatabase } = await safeImport(

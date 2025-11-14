@@ -10,6 +10,9 @@ import { WorkflowInputSchema, WorkflowOutputSchema } from './schemas.js';
 import type { Workflow } from './types.js';
 import type { ExecutableWorkflow } from './compiler/index.js';
 import { compileWorkflow } from './compiler/index.js';
+import type { ResourceManager } from '../../src/index.js';
+import type { AppDatabase } from '../../database/index.js';
+import { getContentPath, getDatabasePath } from '../../shared/config.js';
 
 // Generate unique IDs
 function generateId(prefix: string): string {
@@ -35,19 +38,37 @@ export interface OrchestrationResult {
   state: 'completed' | 'failed' | 'escalated';
 }
 
+export interface WorkflowOrchestratorDependencies {
+  resourceManager?: ResourceManager;
+  database?: AppDatabase;
+}
+
 export class WorkflowOrchestrator {
   private stateManager: StateManager;
   private workflowExecutor: WorkflowExecutor;
   private stepExecutor: StepExecutor;
   private agentTaskExecutor: AgentTaskExecutor;
   private options: OrchestrationOptions;
+  private resourceManager?: ResourceManager;
+  private database?: AppDatabase;
+  private readonly externalDependencies: boolean;
 
-  constructor(options: OrchestrationOptions = {}) {
+  constructor(options: OrchestrationOptions = {}, dependencies: WorkflowOrchestratorDependencies = {}) {
+    if (
+      (dependencies.resourceManager && !dependencies.database) ||
+      (!dependencies.resourceManager && dependencies.database)
+    ) {
+      throw new Error('WorkflowOrchestrator requires both resourceManager and database when injecting dependencies');
+    }
+
     this.options = options;
     this.stateManager = new StateManager();
     this.agentTaskExecutor = new AgentTaskExecutor();
     this.stepExecutor = new StepExecutor(this.agentTaskExecutor);
     this.workflowExecutor = new WorkflowExecutor(this.stepExecutor);
+    this.resourceManager = dependencies.resourceManager;
+    this.database = dependencies.database;
+    this.externalDependencies = Boolean(dependencies.resourceManager);
   }
 
   /**
@@ -139,20 +160,11 @@ export class WorkflowOrchestrator {
 
   private async loadWorkflowDefinition(name: string): Promise<Workflow | null> {
     try {
-      // Load workflow from ResourceManager
-      const { ResourceManager } = await import('../../src/index.js');
-      const { initDatabase } = await import('../../database/index.js');
-
-      const db = await initDatabase();
-      const manager = await ResourceManager.init({
-        database: db.connection,
-        basePath: process.env.MIDE_CONTENT_PATH || '.mide-lite',
-      });
+      const { manager } = await this.getResourceManager();
 
       // Get workflow from database
       const result = await manager.get<any>('workflow', name);
       if (!result) {
-        db.close();
         return null;
       }
 
@@ -162,17 +174,43 @@ export class WorkflowOrchestrator {
         description: result.description,
         content: result.content,
         tags: result.tags ? JSON.parse(result.tags) : [],
-        complexity: result.complexity_hint || 'moderate',
+        complexity: result.complexity || 'moderate',
         phases: [], // TODO: Parse phases from content when needed
         path: result.path || '',
         fileHash: result.file_hash,
       };
 
-      db.close();
       return workflow;
     } catch {
       return null;
     }
+  }
+
+  private async getResourceManager(): Promise<{ manager: ResourceManager; db: AppDatabase }> {
+    if (this.resourceManager && this.database) {
+      return { manager: this.resourceManager, db: this.database };
+    }
+
+    const [{ ResourceManager: ResourceManagerClass }, { initDatabase }] = await Promise.all([
+      import('../../src/index.js'),
+      import('../../database/index.js'),
+    ]);
+
+    const db = await initDatabase({ path: getDatabasePath() });
+    const manager = await ResourceManagerClass.init({
+      database: db.connection,
+      basePath: getContentPath(),
+    });
+
+    if (!this.externalDependencies) {
+      this.resourceManager = manager;
+      this.database = db;
+    }
+
+    return {
+      manager: this.resourceManager || manager,
+      db: this.database || db,
+    };
   }
 
   private createErrorOutput(input: WorkflowInput, error: Error): WorkflowOutput {

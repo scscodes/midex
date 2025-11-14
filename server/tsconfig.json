@@ -18,7 +18,7 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src/**/*", "database/**/*", "utils/**/*", "mcp/**/*"],
+  "include": ["src/**/*", "database/**/*", "utils/**/*", "mcp/**/*", "shared/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }
 

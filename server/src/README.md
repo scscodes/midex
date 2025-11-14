@@ -86,7 +86,7 @@ import { initDatabase } from '@/database';
 const db = await initDatabase();
 const manager = await ResourceManager.init({
   database: db.connection,
-  basePath: '.mide-lite',
+  basePath: 'server/content',
 });
 ```
 
@@ -149,7 +149,7 @@ await manager.sync('custom');
 Manages agents, rules, and workflows as unified content resources.
 
 **Extraction:**
-- Scans `.mide-lite/agents/`, `.mide-lite/rules/`, `.mide-lite/workflows/`
+- Scans `server/content/agents/`, `server/content/rules/`, `server/content/workflows/`
 - Reads markdown files with frontmatter
 - Computes SHA-256 hash for change detection
 

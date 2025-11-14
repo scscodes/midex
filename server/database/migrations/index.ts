@@ -13,7 +13,7 @@ export { discoverMigrations } from './discovery.js';
  * import { initDatabase } from '@/database';
  * import { MigrationRunner, discoverMigrations } from '@/database/migrations';
  *
- * const db = await initDatabase({ path: './data/app.db' });
+ * const db = await initDatabase({ path: './shared/database/app.db' });
  * const runner = new MigrationRunner(db.connection);
  * const migrations = await discoverMigrations();
  *

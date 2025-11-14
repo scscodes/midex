@@ -24,6 +24,7 @@ import { LifecycleTools } from './tools/lifecycle-tools.js';
 import { LoggingTools } from './tools/logging-tools.js';
 import { QueryTools } from './tools/query-tools.js';
 import { ProjectAssociationManager } from '../src/lib/project-association.js';
+import { getContentPath, getDatabasePath } from '../shared/config.js';
 
 /**
  * MCP Server configuration
@@ -36,10 +37,10 @@ const SERVER_VERSION = '0.1.0';
  */
 async function main() {
   // Initialize database and resource manager
-  const db = await initDatabase({ runMigrations: true });
+  const db = await initDatabase({ runMigrations: true, path: getDatabasePath() });
   const resourceManager = await ResourceManager.init({
     database: db.connection,
-    basePath: process.env.MIDE_CONTENT_PATH || '.mide-lite',
+    basePath: getContentPath(),
   });
 
   // Sync all resources on startup

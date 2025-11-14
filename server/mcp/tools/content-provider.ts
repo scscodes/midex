@@ -34,7 +34,7 @@ interface Workflow {
   content: string;
   tags?: string;
   keywords?: string;
-  complexity_hint?: string;
+  complexity?: string;
   path?: string;
   file_hash?: string;
 }
@@ -96,7 +96,7 @@ export class ContentProviderTools {
 
     // Filter by complexity if specified
     const filtered = complexity
-      ? workflows.filter(wf => wf.complexity_hint === complexity)
+      ? workflows.filter(wf => wf.complexity === complexity)
       : workflows;
 
     // Format responses based on detail level
@@ -341,7 +341,7 @@ export class ContentProviderTools {
         content: '',
         tags: workflow.tags,
         keywords: workflow.keywords,
-        complexity_hint: workflow.complexity_hint,
+        complexity: workflow.complexity,
         path: workflow.path,
         file_hash: workflow.file_hash,
       };

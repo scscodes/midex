@@ -18,27 +18,27 @@ You orchestrate complex development tasks by delegating to specialized agents wh
 
 ## Shared Context and Contracts
 
-- Always load shared context from `.mide-lite/agents/_shared_context.md`.
-- Use centralized contracts in `.mide-lite/contracts/` for all boundaries:
-  - AgentInput: `.mide-lite/contracts/AgentInput.schema.json`
-  - AgentOutput: `.mide-lite/contracts/AgentOutput.schema.json`
-  - StepInput: `.mide-lite/contracts/StepInput.schema.json`
-  - StepOutput: `.mide-lite/contracts/StepOutput.schema.json`
-  - WorkflowInput: `.mide-lite/contracts/WorkflowInput.schema.json`
-  - WorkflowOutput: `.mide-lite/contracts/WorkflowOutput.schema.json`
-- Apply rules from `.mide-lite/rules/` based on context:
-  - Base rules always: `.mide-lite/rules/base_rules.md` (tags: base, global)
+- Always load shared context from `server/content/agents/_shared_context.md`.
+- Use centralized contracts in `server/content/contracts/` for all boundaries:
+  - AgentInput: `server/content/contracts/AgentInput.schema.json`
+  - AgentOutput: `server/content/contracts/AgentOutput.schema.json`
+  - StepInput: `server/content/contracts/StepInput.schema.json`
+  - StepOutput: `server/content/contracts/StepOutput.schema.json`
+  - WorkflowInput: `server/content/contracts/WorkflowInput.schema.json`
+  - WorkflowOutput: `server/content/contracts/WorkflowOutput.schema.json`
+- Apply rules from `server/content/rules/` based on context:
+  - Base rules always: `server/content/rules/base_rules.md` (tags: base, global)
   - Language rules by file type: `typescript.md`, `javascript.md`, `python.md`
   - Specialized rules by workflow/task tags: `security.md`, `testing.md`, `hygiene.md`
 
 ## Project State and Standards
 
-- Respect project rules in `.mide-lite/rules/` and workflows in `.mide-lite/workflows/`.
+- Respect project rules in `server/content/rules/` and workflows in `server/content/workflows/`.
 - Use shared context guidance; do not invent external dependencies or directories.
 
 ## Workflow Discovery
 
-- Read `.mide-lite/workflows/index.yaml` to discover available workflows.
+- Read `server/content/workflows/index.yaml` to discover available workflows.
 - Select by matching triggers.keywords/tags; produce a `WorkflowInput` with `name` and `reason`.
 - Execute phases: for each phase produce a `StepInput`; expect a `StepOutput` per schema.
 - Aggregate to a final `WorkflowOutput` (preserve FULL artifacts).
@@ -103,7 +103,7 @@ Inputs include: task, constraints (rules), and references; outputs must follow s
 ### Documentation
 - **documentation-specialist** → **reviewer** (parallel with implementation when safe)
 
-Avoid project-specific paths. Reference only shared resources in `.mide-lite/`.
+Avoid project-specific paths. Reference only shared resources in `server/content/`.
 
 **Quality gates:**
 
@@ -121,7 +121,7 @@ Avoid project-specific paths. Reference only shared resources in `.mide-lite/`.
 
 ## Aggregation
 
-Aggregate strictly per `.mide-lite/contracts/WorkflowOutput.schema.json`:
+Aggregate strictly per `server/content/contracts/WorkflowOutput.schema.json`:
 - Preserve FULL artifacts; do not compress content
 - Merge decisions and findings; include references and confidence
 - Provide a concise summary at the top
@@ -159,10 +159,10 @@ Aggregate strictly per `.mide-lite/contracts/WorkflowOutput.schema.json`:
 
 ## Tech/Rules References
 
-- Base: `.mide-lite/rules/base_rules.md` (tags: base, global)
-- Language: `.mide-lite/rules/typescript.md` (tags: typescript), `.mide-lite/rules/javascript.md` (tags: javascript), `.mide-lite/rules/python.md` (tags: python)
-- Specialized: `.mide-lite/rules/security.md` (tags: security), `.mide-lite/rules/testing.md` (tags: testing), `.mide-lite/rules/hygiene.md` (tags: hygiene)
-- Workflows: `.mide-lite/workflows/*` (registry: `.mide-lite/workflows/index.yaml`)
+- Base: `server/content/rules/base_rules.md` (tags: base, global)
+- Language: `server/content/rules/typescript.md` (tags: typescript), `server/content/rules/javascript.md` (tags: javascript), `server/content/rules/python.md` (tags: python)
+- Specialized: `server/content/rules/security.md` (tags: security), `server/content/rules/testing.md` (tags: testing), `server/content/rules/hygiene.md` (tags: hygiene)
+- Workflows: `server/content/workflows/*` (registry: `server/content/workflows/index.yaml`)
 - All rules have standardized frontmatter: name, description, globs, alwaysApply: false, tags
 
  

@@ -3,7 +3,8 @@
  * Finds and reads resources from filesystem or other sources
  */
 
-import { readdir, readFile, stat } from 'fs/promises';
+import { readdir, readFile, stat, access } from 'fs/promises';
+import { constants } from 'fs';
 import { join, relative } from 'path';
 import type { ExtractOptions, RawResource, ResourceMetadata } from '../types.js';
 import { computeHash } from './hash.js';
@@ -18,6 +19,14 @@ export class FilesystemExtractor {
   async extract(resourceType: string, options: ExtractOptions): Promise<RawResource[]> {
     const { basePath, patterns = ['**/*.md'], exclude = [] } = options;
     const resources: RawResource[] = [];
+
+    // Check if basePath exists before attempting to extract
+    try {
+      await access(basePath, constants.F_OK);
+    } catch {
+      // Directory doesn't exist - return empty array (graceful degradation)
+      return resources;
+    }
 
     try {
       const files = await this.findFiles(basePath, patterns, exclude);
@@ -62,6 +71,14 @@ export class FilesystemExtractor {
     const files: string[] = [];
 
     const walk = async (dir: string): Promise<void> => {
+      // Check if directory exists before reading
+      try {
+        await access(dir, constants.F_OK);
+      } catch {
+        // Directory doesn't exist - skip silently
+        return;
+      }
+
       try {
         const entries = await readdir(dir, { withFileTypes: true });
 
@@ -80,7 +97,11 @@ export class FilesystemExtractor {
           }
         }
       } catch (error) {
-        console.error(`Failed to walk directory ${dir}:`, error);
+        // Only log if it's not a "directory doesn't exist" error
+        const err = error as NodeJS.ErrnoException;
+        if (err.code !== 'ENOENT') {
+          console.error(`Failed to walk directory ${dir}:`, error);
+        }
       }
     };
 
