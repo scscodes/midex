@@ -10,9 +10,9 @@ import { WorkflowInputSchema, WorkflowOutputSchema } from './schemas.js';
 import type { Workflow } from './types.js';
 import type { ExecutableWorkflow } from './compiler/index.js';
 import { compileWorkflow } from './compiler/index.js';
-import type { ResourceManager } from '../../src/index.js';
-import type { AppDatabase } from '../../database/index.js';
-import { getContentPath, getDatabasePath } from '../../shared/config.js';
+import type { ResourceManager } from '../../../src/index.js';
+import type { AppDatabase } from '../../../database/index.js';
+import { getContentPath, getDatabasePath } from '../../../shared/config.js';
 
 // Generate unique IDs
 function generateId(prefix: string): string {
@@ -192,8 +192,8 @@ export class WorkflowOrchestrator {
     }
 
     const [{ ResourceManager: ResourceManagerClass }, { initDatabase }] = await Promise.all([
-      import('../../src/index.js'),
-      import('../../database/index.js'),
+      import('../../../src/index.js'),
+      import('../../../database/index.js'),
     ]);
 
     const db = await initDatabase({ path: getDatabasePath() });

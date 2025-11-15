@@ -57,31 +57,24 @@ export class MigrationRunner {
 
   /**
    * Handle baseline transition for existing databases
-   * If old migrations (1-8) are applied, mark baseline (1) as applied
+   * If old migrations exist, update version 1 to 'baseline' name
    */
   private handleBaselineTransition(): void {
     const applied = this.getAppliedMigrations();
-    
-    // Check if we have old migrations (versions 1-8 with old names)
+
+    // Check if we have old migration schema (version 1 with old name)
     const oldMigrationNames = new Set([
       'initial_content_schema',
       'normalize_tags',
-      'add_check_constraints',
-      'add_full_text_search',
-      'add_audit_logging',
-      'add_workflow_phases',
-      'add_execution_lifecycle',
-      'add_tool_configs',
     ]);
-    
-    const hasOldMigrations = applied.some(m => oldMigrationNames.has(m.name));
-    const hasBaseline = applied.some(m => m.version === 1 && m.name === 'baseline');
-    
-    // If we have old migrations but no baseline, mark baseline as applied
-    if (hasOldMigrations && !hasBaseline) {
+
+    const hasOldSchema = applied.some(m => m.version === 1 && oldMigrationNames.has(m.name));
+
+    // Update version 1 to baseline name if it's an old migration
+    if (hasOldSchema) {
       this.db
-        .prepare('INSERT OR IGNORE INTO schema_migrations (version, name) VALUES (?, ?)')
-        .run(1, 'baseline');
+        .prepare('UPDATE schema_migrations SET name = ? WHERE version = 1')
+        .run('baseline');
     }
   }
 

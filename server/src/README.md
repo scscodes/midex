@@ -111,6 +111,30 @@ console.log(`Added: ${result.added}`);
 console.log(`Errors: ${result.errors}`);
 ```
 
+### Workflow Engine (MCP)
+
+```typescript
+import { WorkflowEngine } from '@/mcp/core/workflow-engine';
+import { WorkflowOrchestrator } from '@/mcp/core/orchestrator';
+
+const engine = new WorkflowEngine({
+  resourceManager,
+  database: db,
+  lifecycle: lifecycleManager,
+  executionLogger,
+  artifactStore,
+  findingStore,
+  orchestrator: new WorkflowOrchestrator({}, { resourceManager, database: db }),
+});
+
+const result = await engine.execute(
+  { name: 'feature-development', reason: 'Ship new flow', expected_output: 'WorkflowOutput' },
+  { projectPath: '/repo/app' }
+);
+```
+
+The engine bridges orchestrator telemetry with lifecycle persistence so MCP tools see consistent executions/steps/logs without re-implementing orchestration logic.
+
 ### Query Resources
 
 ```typescript

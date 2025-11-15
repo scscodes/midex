@@ -1,8 +1,20 @@
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
+// Calculate paths accounting for whether we're running from src/ or dist/
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
-const SERVER_ROOT = resolve(MODULE_DIR, '..');
+
+// Find SERVER_ROOT by looking for the directory containing package.json
+// This works whether we're in server/shared/ or server/dist/shared/
+let SERVER_ROOT: string;
+if (MODULE_DIR.includes('/dist/')) {
+  // Running from dist/shared/ -> server root is two levels up
+  SERVER_ROOT = resolve(MODULE_DIR, '..', '..');
+} else {
+  // Running from shared/ -> server root is one level up
+  SERVER_ROOT = resolve(MODULE_DIR, '..');
+}
+
 const PROJECT_ROOT = resolve(SERVER_ROOT, '..');
 
 export function env(key: string, defaultValue: string): string {

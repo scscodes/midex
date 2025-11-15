@@ -6,8 +6,8 @@
  */
 
 import type { Workflow, WorkflowPhase, StepDefinition, AgentTaskDefinition } from '../types.js';
-import type { ExecutionPolicy } from '../../../utils/execution-policies.js';
-import { getExecutionPolicy } from '../../../utils/execution-policies.js';
+import type { ExecutionPolicy } from '../../../../utils/execution-policies.js';
+import { getExecutionPolicy } from '../../../../utils/execution-policies.js';
 
 /**
  * Executable workflow - compiled from template + policy

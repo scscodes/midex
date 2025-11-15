@@ -8,17 +8,17 @@ import type {
   LogLayer,
   LogLevel,
   ExecutionLog,
-} from '../lifecycle/execution-logger.js';
+} from '../../core/persistence/execution-logger.js';
 import type {
   ArtifactStore,
   ArtifactContentType,
   Artifact,
-} from '../lifecycle/artifact-store.js';
+} from '../../core/persistence/artifact-store.js';
 import type {
   FindingStore,
   FindingSeverity,
   Finding,
-} from '../lifecycle/finding-store.js';
+} from '../../core/persistence/finding-store.js';
 
 export interface LogExecutionParams {
   executionId: string;

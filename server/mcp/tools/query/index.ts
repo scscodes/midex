@@ -9,14 +9,14 @@ import type {
   FindingSeverity,
   Finding,
   QueryFindingsOptions,
-} from '../lifecycle/finding-store.js';
+} from '../../core/persistence/finding-store.js';
 import type {
   WorkflowLifecycleManager,
   WorkflowExecution,
   WorkflowStep,
-} from '../lifecycle/workflow-lifecycle-manager.js';
-import { WorkflowExecutionRowSchema } from '../../utils/database-schemas.js';
-import { validateDatabaseRow, validateDatabaseRows } from '../../utils/validation.js';
+} from '../../core/persistence/workflow-lifecycle-manager.js';
+import { WorkflowExecutionRowSchema } from '../../../utils/database-schemas.js';
+import { validateDatabaseRow, validateDatabaseRows } from '../../../utils/validation.js';
 
 export interface QueryFindingsParams extends QueryFindingsOptions {}
 
@@ -199,7 +199,7 @@ export class QueryTools {
   }
 
   // Helper method to map validated execution row
-  private mapExecutionRow(row: import('../../utils/database-schemas.js').WorkflowExecutionRow): WorkflowExecution {
+  private mapExecutionRow(row: import('../../../utils/database-schemas.js').WorkflowExecutionRow): WorkflowExecution {
     return {
       id: row.id,
       workflowName: row.workflow_name,

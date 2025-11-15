@@ -6,7 +6,7 @@
  *
  * Supports environment variable overrides for flexibility
  */
-import { getEnvBoolean, getEnvNumber } from '../../../shared/config.js';
+import { getEnvBoolean, getEnvNumber } from '../../../../shared/config.js';
 
 export const OrchestratorConfig = {
   // Telemetry

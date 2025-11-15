@@ -33,7 +33,7 @@ server/
 - Content provider, lifecycle, logging, query tools
 - Deep integration with database and resource pipeline
 
-**Workflow Orchestrator** (`server/mcp/orchestrator/`)
+**Workflow Orchestrator** (`server/mcp/core/orchestrator/`)
 - 4-layer execution model: Orchestrator → Workflow → Step → Agent Task
 - Policy-driven execution using workflow complexity-based policies
 - Contract validation at each layer boundary
@@ -84,7 +84,8 @@ npm run mcp:start
 - **Execution Tracking**: Full telemetry and state management
 
 ### MCP Integration
-- **23 Tools**: Content search, lifecycle management, logging, queries
+- **Workflow Engine**: `WorkflowEngine` wraps `WorkflowOrchestrator`, persisting executions/steps/logs to SQLite automatically.
+- **Lifecycle Tools**: `start_execution` now performs a full orchestrated run; legacy manual step APIs have been retired.
 - **State Persistence**: Execution tracking across sessions
 - **Project Association**: Auto-track projects and scope findings
 - **Full-Text Search**: FTS5-powered finding search

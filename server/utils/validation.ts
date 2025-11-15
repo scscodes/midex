@@ -73,7 +73,7 @@ export function validateOrThrow<T>(
 
 /**
  * Custom validation error for database/utility validation
- * Note: Orchestrator has its own ValidationError in mcp/orchestrator/errors.ts
+ * Note: Orchestrator has its own ValidationError in mcp/core/orchestrator/errors.ts
  */
 export class DatabaseValidationError extends Error {
   constructor(

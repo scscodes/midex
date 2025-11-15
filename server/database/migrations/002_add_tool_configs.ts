@@ -5,7 +5,7 @@ import type { Migration } from './types.js';
  * Store AI coding tool configurations (MCP servers, agent rules, hooks)
  */
 const migration: Migration = {
-  version: 7,
+  version: 2,
   name: 'add_tool_configs',
   destructive: false,
 

@@ -3,7 +3,7 @@
  * Provides discovery and retrieval of workflows, agents, rules, and project context
  */
 
-import type { ResourceManager } from '../../src/index.js';
+import type { ResourceManager } from '../../../src/index.js';
 import type { Database as DB } from 'better-sqlite3';
 
 // Type definitions for content (matching database schema)

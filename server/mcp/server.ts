@@ -15,16 +15,17 @@ import {
 
 import { ResourceManager } from '../src/index.js';
 import { initDatabase } from '../database/index.js';
-import { WorkflowLifecycleManager } from './lifecycle/workflow-lifecycle-manager.js';
-import { ExecutionLogger } from './lifecycle/execution-logger.js';
-import { ArtifactStore } from './lifecycle/artifact-store.js';
-import { FindingStore } from './lifecycle/finding-store.js';
-import { ContentProviderTools } from './tools/content-provider.js';
-import { LifecycleTools } from './tools/lifecycle-tools.js';
-import { LoggingTools } from './tools/logging-tools.js';
-import { QueryTools } from './tools/query-tools.js';
+import { WorkflowLifecycleManager } from './core/persistence/workflow-lifecycle-manager.js';
+import { ExecutionLogger } from './core/persistence/execution-logger.js';
+import { ArtifactStore } from './core/persistence/artifact-store.js';
+import { FindingStore } from './core/persistence/finding-store.js';
+import { ContentProviderTools } from './tools/content/index.js';
+import { LifecycleTools } from './tools/workflow/index.js';
+import { LoggingTools } from './tools/logging/index.js';
+import { QueryTools } from './tools/query/index.js';
 import { ProjectAssociationManager } from '../src/lib/project-association.js';
 import { getContentPath, getDatabasePath } from '../shared/config.js';
+import { WorkflowEngine } from './core/workflow-engine.js';
 
 /**
  * MCP Server configuration
@@ -52,10 +53,19 @@ async function main() {
   const artifactStore = new ArtifactStore(db.connection);
   const findingStore = new FindingStore(db.connection);
   const projectManager = new ProjectAssociationManager(db.connection);
+  const workflowEngine = new WorkflowEngine({
+    resourceManager,
+    database: db,
+    lifecycle: lifecycleManager,
+    executionLogger,
+    artifactStore,
+    findingStore,
+    projectManager,
+  });
 
   // Initialize tool providers
   const contentProvider = new ContentProviderTools(resourceManager, db.connection);
-  const lifecycleTools = new LifecycleTools(lifecycleManager, resourceManager, executionLogger);
+  const lifecycleTools = new LifecycleTools(lifecycleManager, resourceManager, workflowEngine);
   const loggingTools = new LoggingTools(executionLogger, artifactStore, findingStore);
   const queryTools = new QueryTools(db.connection, findingStore, lifecycleManager);
 
@@ -171,78 +181,6 @@ async function main() {
               timeoutMs: { type: 'number' },
             },
             required: ['workflowName'],
-          },
-        },
-        {
-          name: 'transition_workflow_state',
-          description: 'Transition workflow to a new state',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              executionId: { type: 'string' },
-              newState: { type: 'string', enum: ['pending', 'running', 'completed', 'failed', 'timeout', 'escalated'] },
-              error: { type: 'string' },
-            },
-            required: ['executionId', 'newState'],
-          },
-        },
-        {
-          name: 'start_step',
-          description: 'Start a new step in the workflow',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              executionId: { type: 'string' },
-              stepName: { type: 'string' },
-              phaseName: { type: 'string' },
-              dependsOn: { type: 'array', items: { type: 'string' } },
-            },
-            required: ['executionId', 'stepName'],
-          },
-        },
-        {
-          name: 'complete_step',
-          description: 'Complete a workflow step',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              stepId: { type: 'string' },
-              output: { type: 'object' },
-              error: { type: 'string' },
-            },
-            required: ['stepId'],
-          },
-        },
-        {
-          name: 'check_execution_timeout',
-          description: 'Check for timed-out executions and auto-transition them',
-          inputSchema: {
-            type: 'object',
-            properties: {},
-          },
-        },
-        {
-          name: 'resume_execution',
-          description: 'Resume a timed-out or escalated execution',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              executionId: { type: 'string' },
-            },
-            required: ['executionId'],
-          },
-        },
-        {
-          name: 'complete_execution',
-          description: 'Complete a workflow execution',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              executionId: { type: 'string' },
-              output: { type: 'object' },
-              error: { type: 'string' },
-            },
-            required: ['executionId'],
           },
         },
         {
@@ -404,27 +342,6 @@ async function main() {
             (args as any).projectId = project.id;
           }
           result = await lifecycleTools.startExecution(args as any);
-          break;
-        case 'transition_workflow_state':
-          lifecycleTools.transitionWorkflowState(args as any);
-          result = { success: true };
-          break;
-        case 'start_step':
-          result = lifecycleTools.startStep(args as any);
-          break;
-        case 'complete_step':
-          result = lifecycleTools.completeStep(args as any);
-          break;
-        case 'check_execution_timeout':
-          result = lifecycleTools.checkExecutionTimeout();
-          break;
-        case 'resume_execution':
-          lifecycleTools.resumeExecution(args as any);
-          result = { success: true };
-          break;
-        case 'complete_execution':
-          lifecycleTools.completeExecution(args as any);
-          result = { success: true };
           break;
         case 'get_incomplete_executions':
           result = lifecycleTools.getIncompleteExecutions(args as any);

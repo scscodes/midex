@@ -1,6 +1,6 @@
 /**
- * MCP Lifecycle Management
- * Exports all lifecycle management components
+ * MCP Persistence Layer
+ * Exports durable storage helpers used by WorkflowEngine and tools
  */
 
 export * from './workflow-lifecycle-manager.js';

@@ -10,8 +10,8 @@ import {
   WorkflowStepRowSchema,
   type WorkflowExecutionRow,
   type WorkflowStepRow,
-} from '../../utils/database-schemas.js';
-import { validateDatabaseRow, validateDatabaseRows } from '../../utils/validation.js';
+} from '../../../utils/database-schemas.js';
+import { validateDatabaseRow, validateDatabaseRows } from '../../../utils/validation.js';
 
 // State machine states
 export type WorkflowExecutionState = 'pending' | 'running' | 'completed' | 'failed' | 'timeout' | 'escalated';

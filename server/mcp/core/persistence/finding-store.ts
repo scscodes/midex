@@ -5,8 +5,8 @@
 
 import type { Database as DB } from 'better-sqlite3';
 import { randomUUID } from 'crypto';
-import { FindingRowSchema, type FindingRow } from '../../utils/database-schemas.js';
-import { validateDatabaseRow, validateDatabaseRows } from '../../utils/validation.js';
+import { FindingRowSchema, type FindingRow } from '../../../utils/database-schemas.js';
+import { validateDatabaseRow, validateDatabaseRows } from '../../../utils/validation.js';
 
 export type FindingSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical';
 

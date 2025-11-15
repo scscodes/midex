@@ -5,8 +5,8 @@
 
 import type { Database as DB } from 'better-sqlite3';
 import { randomUUID } from 'crypto';
-import { ArtifactRowSchema, type ArtifactRow } from '../../utils/database-schemas.js';
-import { validateDatabaseRow, validateDatabaseRows } from '../../utils/validation.js';
+import { ArtifactRowSchema, type ArtifactRow } from '../../../utils/database-schemas.js';
+import { validateDatabaseRow, validateDatabaseRows } from '../../../utils/validation.js';
 
 export type ArtifactContentType = 'text' | 'markdown' | 'json' | 'binary';
 

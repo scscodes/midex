@@ -1,7 +1,7 @@
 /**
- * MCP (Model Context Protocol) Module
- * Exports lifecycle management and MCP server
+ * MCP (Model Context Protocol) exports
  */
 
-export * from './lifecycle/index.js';
+export * from './core/workflow-engine.js';
+export * from './core/persistence/index.js';
 export * from './tools/index.js';

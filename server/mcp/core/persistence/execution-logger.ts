@@ -14,8 +14,8 @@ import {
   AgentInputSchema,
   AgentOutputSchema,
 } from '../orchestrator/schemas.js';
-import { validateOrThrow, DatabaseValidationError, validateDatabaseRow } from '../../utils/validation.js';
-import { ExecutionLogRowSchema, type ExecutionLogRow } from '../../utils/database-schemas.js';
+import { validateOrThrow, DatabaseValidationError, validateDatabaseRow } from '../../../utils/validation.js';
+import { ExecutionLogRowSchema, type ExecutionLogRow } from '../../../utils/database-schemas.js';
 
 export type LogLayer = 'orchestrator' | 'workflow' | 'step' | 'agent_task';
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
