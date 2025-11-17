@@ -1,5 +1,7 @@
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { readFileSync, existsSync } from 'fs';
+import { parse as parseYaml } from 'yaml';
 
 // Calculate paths accounting for whether we're running from src/ or dist/
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
@@ -16,6 +18,73 @@ if (MODULE_DIR.includes('/dist/')) {
 }
 
 const PROJECT_ROOT = resolve(SERVER_ROOT, '..');
+
+// ============================================================================
+// YAML Config Loading
+// ============================================================================
+
+interface MidexConfig {
+  paths?: {
+    database?: string;
+    content?: string;
+    backups?: string;
+  };
+  mcp?: {
+    name?: string;
+    version?: string;
+    server?: {
+      command?: string;
+      args?: string[];
+      env?: Record<string, string>;
+    };
+    autoRegister?: {
+      enabled?: boolean;
+      tools?: Record<string, boolean>;
+      conflictResolution?: string;
+      createBackups?: boolean;
+    };
+  };
+  tools?: any;
+}
+
+let cachedConfig: MidexConfig | null = null;
+
+/**
+ * Load and parse midex.config.yaml from project root
+ * Results are cached after first load
+ */
+function loadMidexConfig(): MidexConfig {
+  if (cachedConfig) {
+    return cachedConfig;
+  }
+
+  const configPath = resolve(PROJECT_ROOT, 'midex.config.yaml');
+
+  if (!existsSync(configPath)) {
+    // Config file doesn't exist, return empty config
+    cachedConfig = {};
+    return cachedConfig;
+  }
+
+  try {
+    const content = readFileSync(configPath, 'utf-8');
+    // Substitute ${PROJECT_ROOT} with actual path
+    const substituted = content.replace(/\$\{PROJECT_ROOT\}/g, PROJECT_ROOT);
+    cachedConfig = parseYaml(substituted) as MidexConfig;
+    return cachedConfig;
+  } catch (error) {
+    console.error(`Failed to load midex.config.yaml: ${error}`);
+    cachedConfig = {};
+    return cachedConfig;
+  }
+}
+
+/**
+ * Get the full midex configuration
+ */
+export function getMidexConfig(): MidexConfig {
+  return loadMidexConfig();
+}
 
 export function env(key: string, defaultValue: string): string {
   return process.env[key] || defaultValue;
@@ -42,18 +111,30 @@ export function getEnvBoolean(key: string, defaultValue: boolean): boolean {
 }
 
 export function getContentPath(): string {
+  // Priority: 1. Env var, 2. YAML config, 3. Default
   const override = process.env.MIDE_CONTENT_PATH;
   if (override) {
     return resolve(process.cwd(), override);
+  }
+
+  const config = loadMidexConfig();
+  if (config.paths?.content) {
+    return config.paths.content;
   }
 
   return resolve(SERVER_ROOT, 'content');
 }
 
 export function getDatabasePath(): string {
+  // Priority: 1. Env var, 2. YAML config, 3. Default
   const override = process.env.MIDE_DB_PATH;
   if (override) {
     return resolve(process.cwd(), override);
+  }
+
+  const config = loadMidexConfig();
+  if (config.paths?.database) {
+    return config.paths.database;
   }
 
   return resolve(PROJECT_ROOT, 'shared', 'database', 'app.db');

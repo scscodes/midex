@@ -17,14 +17,14 @@ export function getUserConfigPath(toolType: ToolType): string | null {
 
   const paths: Record<ToolType, Record<string, string>> = {
     'claude-code': {
-      win32: join(home, '.claude', 'settings.json'),
-      darwin: join(home, '.claude', 'settings.json'),
-      linux: join(home, '.claude', 'settings.json'),
+      win32: join(home, '.claude'),
+      darwin: join(home, '.claude'),
+      linux: join(home, '.claude'),
     },
     'cursor': {
-      win32: join(process.env.APPDATA || '', 'Cursor', 'User', 'mcp.json'),
-      darwin: join(home, 'Library', 'Application Support', 'Cursor', 'User', 'mcp.json'),
-      linux: join(home, '.config', 'Cursor', 'User', 'mcp.json'),
+      win32: join(home, '.cursor'),
+      darwin: join(home, '.cursor'),
+      linux: join(home, '.cursor'),
     },
     'windsurf': {
       win32: join(home, '.codeium', 'windsurf', 'mcp_config.json'),

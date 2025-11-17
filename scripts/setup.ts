@@ -10,7 +10,7 @@ import { execSync } from 'child_process';
 import { existsSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { platform, arch } from 'os';
-import { getContentPath, getDatabasePath } from '../../server/shared/config.js';
+import { getContentPath, getDatabasePath } from '../server/shared/config.js';
 
 // ============================================================================
 // Error Handling
@@ -36,11 +36,11 @@ async function safeImport(module: string, step: string): Promise<any> {
     return await import(module);
   } catch (error) {
     // Check if dist/ exists to provide better error message
-    const distPath = resolve(process.cwd(), '../dist');
+    const distPath = resolve(process.cwd(), 'server/dist');
     if (!existsSync(distPath)) {
       throw new SetupError(
         step,
-        `Module ${module} not found - ../dist/ directory missing. Build may have failed.`,
+        `Module ${module} not found - server/dist/ directory missing. Build may have failed.`,
         error
       );
     }
@@ -108,8 +108,8 @@ class StepRunner {
 // ============================================================================
 function runCommandQuiet(command: string, successMessage: string, stepName: string): void {
   try {
-    // Run from server/ directory (two levels up from this script in shared/scripts/)
-    const serverDir = resolve(process.cwd());
+    // Run from server/ directory
+    const serverDir = resolve(process.cwd(), 'server');
     execSync(command, { stdio: 'pipe', cwd: serverDir });
     if (successMessage) {
       console.log(successMessage);
@@ -135,14 +135,14 @@ async function syncResources(): Promise<void> {
 
   // Initialize database
   const { initDatabase } = await safeImport(
-    '../../server/dist/database/index.js',
+    '../server/dist/database/index.js',
     'resource-sync'
   );
   const db = await initDatabase({ path: databasePath });
 
   // Initialize Resource Manager
   const { ResourceManager } = await safeImport(
-    '../../server/dist/src/index.js',
+    '../server/dist/src/index.js',
     'resource-sync'
   );
   const manager = await ResourceManager.init({

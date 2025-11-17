@@ -64,9 +64,9 @@ export class ToolConfigTransformer {
       metadata.rule_count = 1; // Single file
     }
 
-    // Generate unique name
+    // Generate stable unique name (without hash to allow updates)
     const fileName = basename(extracted.filePath);
-    const name = `${extracted.toolType}-${extracted.configType}-${configLevel}-${fileName}-${extracted.hash.substring(0, 8)}`;
+    const name = `${extracted.toolType}-${extracted.configType}-${configLevel}-${fileName}`;
 
     return {
       name,

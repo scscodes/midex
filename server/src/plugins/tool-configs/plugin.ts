@@ -3,8 +3,6 @@
  * Main orchestrator for discovering and managing AI tool configurations
  */
 
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
 import type { Database as DB } from 'better-sqlite3';
 import type {
   ResourcePlugin,
@@ -26,6 +24,7 @@ import { CursorExtractor } from './extractors/cursor.js';
 import { WindsurfExtractor } from './extractors/windsurf.js';
 import { VSCodeExtractor } from './extractors/vscode.js';
 import { IntelliJExtractor } from './extractors/intellij.js';
+import { getMidexConfig } from '../../../shared/config.js';
 
 /**
  * Tool Configuration Plugin
@@ -43,11 +42,8 @@ export class ToolConfigPlugin implements ResourcePlugin<ToolConfigData> {
     private db: DB,
     private basePath: string = process.cwd()
   ) {
-    // Load plugin config from git repository root
-    // Find git root and look for .tool-config.json there
-    const gitRoot = findGitRoot(basePath) || basePath;
-    const configPath = join(gitRoot, 'server', '.tool-config.json');
-    this.config = this.loadConfig(configPath);
+    // Load plugin config from midex.config.yaml
+    this.config = this.loadConfig();
 
     // Initialize project manager
     this.projectManager = new ProjectAssociationManager(this.db);
@@ -64,12 +60,7 @@ export class ToolConfigPlugin implements ResourcePlugin<ToolConfigData> {
     this.extractors.set('intellij', new IntelliJExtractor());
   }
 
-  private loadConfig(configPath: string): PluginConfig {
-    if (existsSync(configPath)) {
-      return JSON.parse(readFileSync(configPath, 'utf-8'));
-    }
-
-    // Default config
+  private getDefaultConfig(): PluginConfig {
     return {
       enabled: true,
       syncStrategy: {
@@ -80,7 +71,7 @@ export class ToolConfigPlugin implements ResourcePlugin<ToolConfigData> {
       },
       discovery: {
         projectLevel: true,
-        userLevel: false,
+        userLevel: true,
         followSymlinks: false,
       },
       extraction: {
@@ -95,12 +86,53 @@ export class ToolConfigPlugin implements ResourcePlugin<ToolConfigData> {
           mcp_servers: true,
           agent_rules: true,
           hooks: true,
-          settings: false,
+          settings: true,
         },
       },
       security: {
         redactSecrets: true,
         secretPatterns: ['API_KEY', 'TOKEN', 'PASSWORD', 'SECRET', 'BEARER'],
+      },
+    };
+  }
+
+  private loadConfig(): PluginConfig {
+    const midexConfig = getMidexConfig();
+
+    // Extract tools config from YAML, with defaults
+    const toolsConfig = midexConfig.tools || {};
+
+    return {
+      enabled: toolsConfig.enabled !== false,
+      syncStrategy: {
+        mode: toolsConfig.sync?.mode || 'readonly',
+        mergeStrategy: 'keep-both',
+        conflictResolution: 'keep-newest',
+        createBackups: true,
+      },
+      discovery: {
+        projectLevel: toolsConfig.discovery?.projectLevel !== false,
+        userLevel: toolsConfig.discovery?.userLevel !== false,
+        followSymlinks: toolsConfig.discovery?.followSymlinks === true,
+      },
+      extraction: {
+        tools: {
+          'claude-code': toolsConfig.supported?.['claude-code'] || { enabled: true, priority: 1 },
+          'cursor': toolsConfig.supported?.cursor || { enabled: true, priority: 2 },
+          'windsurf': toolsConfig.supported?.windsurf || { enabled: true, priority: 3 },
+          'vscode': toolsConfig.supported?.vscode || { enabled: true, priority: 4 },
+          'intellij': toolsConfig.supported?.intellij || { enabled: true, priority: 5 },
+        },
+        configTypes: {
+          mcp_servers: toolsConfig.configTypes?.mcp_servers !== false,
+          agent_rules: toolsConfig.configTypes?.agent_rules !== false,
+          hooks: toolsConfig.configTypes?.hooks !== false,
+          settings: toolsConfig.configTypes?.settings !== false,
+        },
+      },
+      security: {
+        redactSecrets: toolsConfig.security?.redactSecrets !== false,
+        secretPatterns: toolsConfig.security?.secretPatterns || ['API_KEY', 'TOKEN', 'PASSWORD', 'SECRET', 'BEARER'],
       },
     };
   }
@@ -121,23 +153,30 @@ export class ToolConfigPlugin implements ResourcePlugin<ToolConfigData> {
     // Detect tools used in project
     const detectedTools = detectTools(projectPath);
 
-    for (const toolType of detectedTools) {
-      const toolConfig = this.config.extraction.tools[toolType];
-      if (!toolConfig?.enabled) continue;
+    // Extract project-level configs for detected tools
+    if (this.config.discovery.projectLevel) {
+      for (const toolType of detectedTools) {
+        const toolConfig = this.config.extraction.tools[toolType];
+        if (!toolConfig?.enabled) continue;
 
-      const extractor = this.extractors.get(toolType);
-      if (!extractor) continue;
+        const extractor = this.extractors.get(toolType);
+        if (!extractor) continue;
 
-      // Extract project-level configs
-      if (this.config.discovery.projectLevel) {
         const configs = await extractor.extractProject(projectPath);
         // Mark as project-level
         configs.forEach(c => c.level = 'project');
         rawResources.push(...this.convertToRawResources(configs, projectPath));
       }
+    }
 
-      // Extract user-level configs
-      if (this.config.discovery.userLevel && extractor.extractUser) {
+    // Extract user-level configs for ALL enabled tools (not just detected ones)
+    if (this.config.discovery.userLevel) {
+      for (const [toolType, toolConfig] of Object.entries(this.config.extraction.tools)) {
+        if (!toolConfig?.enabled) continue;
+
+        const extractor = this.extractors.get(toolType as ToolType);
+        if (!extractor?.extractUser) continue;
+
         const configs = await extractor.extractUser();
         // Mark as user-level
         configs.forEach(c => c.level = 'user');

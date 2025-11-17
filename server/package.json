@@ -1,12 +1,11 @@
 {
-  "name": "midex",
+  "name": "@midex/server",
   "version": "0.1.0",
   "type": "module",
   "description": "TypeScript/Node.js application with SQLite",
   "main": "dist/index.js",
   "scripts": {
-    "setup": "tsx ../shared/scripts/setup.ts",
-    "clean": "tsx ../shared/scripts/cleanup.ts",
+    "clean": "tsx ../scripts/cleanup.ts",
     "build": "npm run clean && tsc",
     "dev": "tsc --watch",
     "test": "vitest",
@@ -29,6 +28,7 @@
     "ajv": "^8.12.0",
     "better-sqlite3": "^11.7.0",
     "gray-matter": "^4.0.3",
+    "yaml": "^2.6.1",
     "zod": "^4.1.12"
   }
 }

@@ -1,0 +1,27 @@
+{
+  "name": "midex",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "setup": "tsx scripts/setup.ts",
+    "clean": "tsx scripts/cleanup.ts",
+    "build": "npm run build -ws",
+    "build:server": "npm run build -w @midex/server",
+    "build:client": "npm run build -w @midex/client",
+    "dev": "concurrently \"npm run dev -w @midex/server\" \"npm run dev -w @midex/client\"",
+    "dev:server": "npm run dev -w @midex/server",
+    "dev:client": "npm run dev -w @midex/client",
+    "start": "npm run start -w @midex/server",
+    "start:client": "npm run start -w @midex/client",
+    "test": "npm run test -w @midex/server"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6",
+    "concurrently": "^8.2.2"
+  }
+}

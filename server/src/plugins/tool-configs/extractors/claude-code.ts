@@ -51,10 +51,22 @@ export class ClaudeCodeExtractor implements ToolExtractor {
 
   async extractUser(): Promise<ExtractedConfig[]> {
     const configs: ExtractedConfig[] = [];
-    const userPath = getUserConfigPath('claude-code');
+    const userDir = getUserConfigPath('claude-code');
 
-    if (userPath && existsSync(userPath)) {
-      configs.push(this.readConfig(userPath, 'hooks'));
+    if (!userDir || !existsSync(userDir)) {
+      return configs;
+    }
+
+    // settings.json - Hooks configuration
+    const settingsPath = join(userDir, 'settings.json');
+    if (existsSync(settingsPath)) {
+      configs.push(this.readConfig(settingsPath, 'hooks'));
+    }
+
+    // mcp_settings.json - MCP server configurations
+    const mcpSettingsPath = join(userDir, 'mcp_settings.json');
+    if (existsSync(mcpSettingsPath)) {
+      configs.push(this.readConfig(mcpSettingsPath, 'mcp_servers'));
     }
 
     return configs;

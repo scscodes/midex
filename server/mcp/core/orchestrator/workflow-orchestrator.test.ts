@@ -202,7 +202,7 @@ describe('WorkflowOrchestrator - Design Pattern Enforcement', () => {
 
   describe('Execution Policy Adoption', () => {
     it('should have execution policies for all complexity levels', async () => {
-      const { EXECUTION_POLICIES } = await import('../../utils/execution-policies');
+      const { EXECUTION_POLICIES } = await import('../../../utils/execution-policies');
 
       expect(EXECUTION_POLICIES.simple).toBeDefined();
       expect(EXECUTION_POLICIES.moderate).toBeDefined();
@@ -210,7 +210,7 @@ describe('WorkflowOrchestrator - Design Pattern Enforcement', () => {
     });
 
     it('should have complexity-aware timeouts in execution policies', async () => {
-      const { EXECUTION_POLICIES } = await import('../../utils/execution-policies');
+      const { EXECUTION_POLICIES } = await import('../../../utils/execution-policies');
 
       // Simple workflows: 5min/15min
       expect(EXECUTION_POLICIES.simple.timeout.perStepMs).toBe(300000);
@@ -226,7 +226,7 @@ describe('WorkflowOrchestrator - Design Pattern Enforcement', () => {
     });
 
     it('should have complexity-aware parallelism in execution policies', async () => {
-      const { EXECUTION_POLICIES } = await import('../../utils/execution-policies');
+      const { EXECUTION_POLICIES } = await import('../../../utils/execution-policies');
 
       // Simple: 2 concurrent, fail fast
       expect(EXECUTION_POLICIES.simple.parallelism.maxConcurrent).toBe(2);
@@ -242,7 +242,7 @@ describe('WorkflowOrchestrator - Design Pattern Enforcement', () => {
     });
 
     it('should have complexity-aware retry policies', async () => {
-      const { EXECUTION_POLICIES } = await import('../../utils/execution-policies');
+      const { EXECUTION_POLICIES } = await import('../../../utils/execution-policies');
 
       // Simple: 1 attempt, no escalation
       expect(EXECUTION_POLICIES.simple.retryPolicy.maxAttempts).toBe(1);

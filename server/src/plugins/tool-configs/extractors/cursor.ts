@@ -48,10 +48,22 @@ export class CursorExtractor implements ToolExtractor {
 
   async extractUser(): Promise<ExtractedConfig[]> {
     const configs: ExtractedConfig[] = [];
-    const userPath = getUserConfigPath('cursor');
+    const userDir = getUserConfigPath('cursor');
 
-    if (userPath && existsSync(userPath)) {
-      configs.push(this.readConfig(userPath, 'mcp_servers'));
+    if (!userDir || !existsSync(userDir)) {
+      return configs;
+    }
+
+    // mcp.json - MCP server configurations
+    const mcpPath = join(userDir, 'mcp.json');
+    if (existsSync(mcpPath)) {
+      configs.push(this.readConfig(mcpPath, 'mcp_servers'));
+    }
+
+    // mcp_settings.json - Alternative MCP server configurations
+    const mcpSettingsPath = join(userDir, 'mcp_settings.json');
+    if (existsSync(mcpSettingsPath)) {
+      configs.push(this.readConfig(mcpSettingsPath, 'mcp_servers'));
     }
 
     return configs;
