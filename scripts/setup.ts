@@ -174,6 +174,42 @@ async function syncResources(): Promise<void> {
   db.close();
 }
 
+async function registerMcpServer(): Promise<void> {
+  const databasePath = getDatabasePath();
+  const projectRoot = resolve(process.cwd());
+
+  // Initialize database
+  const { initDatabase } = await safeImport(
+    '../server/dist/database/index.js',
+    'mcp-registration'
+  );
+  const db = await initDatabase({ path: databasePath });
+
+  // Initialize MCP Server Registrar
+  const { McpServerRegistrar } = await safeImport(
+    '../server/dist/src/index.js',
+    'mcp-registration'
+  );
+  const registrar = new McpServerRegistrar(db.connection, projectRoot);
+
+  // Register midex MCP server in discovered tool configs
+  const result = await registrar.registerMidexServer();
+
+  // Log results
+  if (result.total > 0) {
+    const parts: string[] = [];
+    if (result.registered > 0) parts.push(`+${result.registered} registered`);
+    if (result.alreadyRegistered > 0) parts.push(`✓${result.alreadyRegistered} existing`);
+    if (result.errors > 0) parts.push(`✗${result.errors} errors`);
+
+    console.log(`- MCP Registration: ${parts.join(', ')}`);
+  } else {
+    console.log('- MCP Registration: No MCP configs found');
+  }
+
+  db.close();
+}
+
 
 // ============================================================================
 // Main Setup
@@ -193,6 +229,11 @@ async function main(): Promise<void> {
   runner.add({
     name: 'resource-sync',
     run: syncResources,
+  });
+
+  runner.add({
+    name: 'mcp-registration',
+    run: registerMcpServer,
   });
 
   await runner.execute();
