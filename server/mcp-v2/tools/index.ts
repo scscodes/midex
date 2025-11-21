@@ -11,6 +11,7 @@ import type { Database } from 'better-sqlite3';
 import type { NextStepArgs, NextStepResult, WorkflowPhase } from '../types/index.js';
 import { NextStepArgsSchema } from '../types/index.js';
 import { StepExecutor } from '../core/step-executor.js';
+import { TokenService } from '../core/token-service.js';
 
 export interface ToolResult {
   content: Array<{
@@ -20,11 +21,25 @@ export interface ToolResult {
   isError?: boolean;
 }
 
+/**
+ * Safely parse JSON with fallback
+ */
+function safeJsonParse<T>(json: string | null, fallback: T): T {
+  if (!json) return fallback;
+  try {
+    return JSON.parse(json);
+  } catch {
+    return fallback;
+  }
+}
+
 export class ToolHandlers {
   private stepExecutor: StepExecutor;
+  private tokenService: TokenService;
 
   constructor(private db: Database) {
     this.stepExecutor = new StepExecutor(db);
+    this.tokenService = new TokenService();
   }
 
   // ============================================================================
@@ -75,11 +90,8 @@ export class ToolHandlers {
 
       const { token, output } = parsed.data;
 
-      // Get workflow phases from database
-      // First, validate token to get execution_id
-      const validation = new (await import('../core/token-service.js')).TokenService().validateToken(
-        token
-      );
+      // Validate token to get execution_id (use instance, not dynamic import)
+      const validation = this.tokenService.validateToken(token);
 
       if (!validation.valid) {
         return {
@@ -148,7 +160,7 @@ export class ToolHandlers {
         };
       }
 
-      const phases: WorkflowPhase[] = JSON.parse(workflow.phases);
+      const phases: WorkflowPhase[] = safeJsonParse(workflow.phases, []);
 
       // Continue workflow
       const result = this.stepExecutor.continueWorkflow(token, output, phases);
@@ -249,7 +261,7 @@ export class ToolHandlers {
         };
       }
 
-      const phases: WorkflowPhase[] = JSON.parse(workflow.phases);
+      const phases: WorkflowPhase[] = safeJsonParse(workflow.phases, []);
 
       // Start workflow
       const result = this.stepExecutor.startWorkflow(workflowName, executionId, phases);

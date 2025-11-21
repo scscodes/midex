@@ -27,11 +27,12 @@ export class WorkflowStateMachine {
 
   /**
    * Create a new workflow execution
+   * @throws Error if execution cannot be created
    */
   createExecution(workflowName: string, executionId: string): WorkflowExecution {
     const now = new Date().toISOString();
 
-    this.db
+    const result = this.db
       .prepare(
         `
         INSERT INTO workflow_executions_v2 (
@@ -46,11 +47,22 @@ export class WorkflowStateMachine {
       )
       .run(executionId, workflowName, 'idle', null, now, now);
 
+    // Verify insert succeeded
+    if (result.changes === 0) {
+      throw new Error(`Failed to create execution: ${executionId}`);
+    }
+
     this.recordTelemetry('workflow_created', executionId, null, null, {
       workflow_name: workflowName,
     });
 
-    return this.getExecution(executionId)!;
+    // Verify we can retrieve the execution
+    const execution = this.getExecution(executionId);
+    if (!execution) {
+      throw new Error(`Created execution ${executionId} but failed to retrieve it`);
+    }
+
+    return execution;
   }
 
   /**

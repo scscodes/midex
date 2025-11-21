@@ -29,6 +29,18 @@ export interface ResourceContent {
   text?: string;
 }
 
+/**
+ * Safely parse JSON with fallback - prevents crashes on corrupted DB data
+ */
+function safeJsonParse<T>(json: string | null | undefined, fallback: T): T {
+  if (!json) return fallback;
+  try {
+    return JSON.parse(json);
+  } catch {
+    return fallback;
+  }
+}
+
 export class ResourceHandlers {
   constructor(private db: Database) {}
 
@@ -53,9 +65,9 @@ export class ResourceHandlers {
     const workflows = rows.map((row) => ({
       name: row.name,
       description: row.description,
-      tags: row.tags ? JSON.parse(row.tags) : [],
+      tags: safeJsonParse(row.tags, []),
       complexity: row.complexity,
-      phases: row.phases ? JSON.parse(row.phases) : [],
+      phases: safeJsonParse(row.phases, []),
     }));
 
     return {
@@ -95,9 +107,9 @@ export class ResourceHandlers {
       name: row.name,
       description: row.description,
       content: row.content,
-      tags: row.tags ? JSON.parse(row.tags) : [],
+      tags: safeJsonParse(row.tags, []),
       complexity: row.complexity,
-      phases: row.phases ? JSON.parse(row.phases) : [],
+      phases: safeJsonParse(row.phases, []),
     };
 
     return {
@@ -188,7 +200,7 @@ export class ResourceHandlers {
       )
       .get(execution.workflow_name) as any;
 
-    const phases = workflow?.phases ? JSON.parse(workflow.phases) : [];
+    const phases = safeJsonParse(workflow?.phases, []);
     const currentPhaseIndex = phases.findIndex((p: any) => p.phase === step.step_name);
     const totalPhases = phases.length;
 
@@ -309,7 +321,7 @@ export class ResourceHandlers {
       started_at: step.started_at,
       completed_at: step.completed_at,
       duration_ms: step.duration_ms,
-      output: step.output ? JSON.parse(step.output) : null,
+      output: safeJsonParse(step.output, null),
     }));
 
     return {
@@ -352,7 +364,7 @@ export class ResourceHandlers {
       name: artifact.name,
       content_type: artifact.content_type,
       size_bytes: artifact.size_bytes,
-      metadata: artifact.metadata ? JSON.parse(artifact.metadata) : null,
+      metadata: safeJsonParse(artifact.metadata, null),
       created_at: artifact.created_at,
       // Content not included in list view (too large)
       // Use direct DB query if needed
@@ -381,6 +393,9 @@ export class ResourceHandlers {
     eventType?: string,
     limit: number = 100
   ): Promise<ResourceContent> {
+    // Validate and cap limit to prevent excessive queries
+    const safeLimit = Math.min(Math.max(1, isNaN(limit) ? 100 : limit), 1000);
+
     let query = `SELECT * FROM telemetry_events_v2 WHERE 1=1`;
     const params: any[] = [];
 
@@ -395,7 +410,7 @@ export class ResourceHandlers {
     }
 
     query += ` ORDER BY created_at DESC LIMIT ?`;
-    params.push(limit);
+    params.push(safeLimit);
 
     const events = this.db.prepare(query).all(...params) as any[];
 
@@ -405,7 +420,7 @@ export class ResourceHandlers {
       execution_id: event.execution_id,
       step_name: event.step_name,
       agent_name: event.agent_name,
-      metadata: event.metadata ? JSON.parse(event.metadata) : null,
+      metadata: safeJsonParse(event.metadata, null),
       created_at: event.created_at,
     }));
 

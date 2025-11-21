@@ -43,16 +43,33 @@ export class StepExecutor {
 
   /**
    * Start a new workflow execution
+   * Wrapped in transaction for atomicity
    */
   startWorkflow(
     workflowName: string,
     executionId: string,
     phases: WorkflowPhase[]
   ): StepExecutionResult {
-    // Create execution
-    this.stateMachine.createExecution(workflowName, executionId);
+    // Validate inputs
+    if (!executionId || executionId.trim().length === 0) {
+      return {
+        success: false,
+        execution_id: executionId,
+        workflow_state: 'failed',
+        error: 'Execution ID cannot be empty',
+      };
+    }
 
-    // Find first phase
+    if (!workflowName || workflowName.trim().length === 0) {
+      return {
+        success: false,
+        execution_id: executionId,
+        workflow_state: 'failed',
+        error: 'Workflow name cannot be empty',
+      };
+    }
+
+    // Find first phase before transaction
     const firstPhase = this.findFirstPhase(phases);
     if (!firstPhase) {
       return {
@@ -63,56 +80,88 @@ export class StepExecutor {
       };
     }
 
-    // Create first step
-    const now = new Date().toISOString();
-    this.db
-      .prepare(
+    // Check for existing execution with same ID
+    const existing = this.db
+      .prepare('SELECT execution_id FROM workflow_executions_v2 WHERE execution_id = ?')
+      .get(executionId);
+
+    if (existing) {
+      return {
+        success: false,
+        execution_id: executionId,
+        workflow_state: 'failed',
+        error: `Execution ID '${executionId}' already exists`,
+      };
+    }
+
+    // Use transaction for atomicity
+    const transaction = this.db.transaction(() => {
+      // Create execution
+      this.stateMachine.createExecution(workflowName, executionId);
+
+      // Create first step
+      const now = new Date().toISOString();
+      this.db
+        .prepare(
+          `
+          INSERT INTO workflow_steps_v2 (
+            execution_id,
+            step_name,
+            agent_name,
+            status,
+            started_at,
+            token
+          ) VALUES (?, ?, ?, ?, ?, ?)
         `
-        INSERT INTO workflow_steps_v2 (
-          execution_id,
-          step_name,
-          agent_name,
-          status,
-          started_at,
-          token
-        ) VALUES (?, ?, ?, ?, ?, ?)
-      `
-      )
-      .run(executionId, firstPhase.phase, firstPhase.agent, 'pending', now, null);
+        )
+        .run(executionId, firstPhase.phase, firstPhase.agent, 'pending', now, null);
 
-    // Generate token for first step
-    const token = this.tokenService.generateToken(executionId, firstPhase.phase);
+      // Generate token for first step
+      const token = this.tokenService.generateToken(executionId, firstPhase.phase);
 
-    // Update step with token
-    this.db
-      .prepare(
+      // Update step with token
+      this.db
+        .prepare(
+          `
+          UPDATE workflow_steps_v2
+          SET token = ?
+          WHERE execution_id = ? AND step_name = ?
         `
-        UPDATE workflow_steps_v2
-        SET token = ?
-        WHERE execution_id = ? AND step_name = ?
-      `
-      )
-      .run(token, executionId, firstPhase.phase);
+        )
+        .run(token, executionId, firstPhase.phase);
 
-    // Transition to running
-    this.stateMachine.transitionState(executionId, 'running', firstPhase.phase);
+      // Transition to running
+      this.stateMachine.transitionState(executionId, 'running', firstPhase.phase);
 
-    // Record telemetry
-    this.recordTelemetry('workflow_started', executionId, firstPhase.phase, firstPhase.agent, {
-      workflow_name: workflowName,
+      // Record telemetry
+      this.recordTelemetry('workflow_started', executionId, firstPhase.phase, firstPhase.agent, {
+        workflow_name: workflowName,
+      });
+      this.recordTelemetry('token_generated', executionId, firstPhase.phase, null, {
+        step_name: firstPhase.phase,
+      });
+
+      return token;
     });
-    this.recordTelemetry('token_generated', executionId, firstPhase.phase, null, {
-      step_name: firstPhase.phase,
-    });
 
-    return {
-      success: true,
-      execution_id: executionId,
-      step_name: firstPhase.phase,
-      agent_name: firstPhase.agent,
-      workflow_state: 'running',
-      new_token: token,
-    };
+    try {
+      const token = transaction();
+      return {
+        success: true,
+        execution_id: executionId,
+        step_name: firstPhase.phase,
+        agent_name: firstPhase.agent,
+        workflow_state: 'running',
+        new_token: token,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        execution_id: executionId,
+        workflow_state: 'failed',
+        error: `Failed to start workflow: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
   }
 
   /**
