@@ -230,8 +230,16 @@ export class StepExecutor {
         )
         .run(nextToken, execution_id, nextPhase.phase);
 
-      // Update current step
-      this.stateMachine.transitionState(execution_id, 'running', nextPhase.phase);
+      // Update current step (without state transition since already running)
+      this.db
+        .prepare(
+          `
+          UPDATE workflow_executions_v2
+          SET current_step = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE execution_id = ?
+        `
+        )
+        .run(nextPhase.phase, execution_id);
 
       this.recordTelemetry('step_started', execution_id, nextPhase.phase, nextPhase.agent, null);
       this.recordTelemetry('token_generated', execution_id, nextPhase.phase, null, {
