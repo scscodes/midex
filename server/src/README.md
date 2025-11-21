@@ -111,29 +111,18 @@ console.log(`Added: ${result.added}`);
 console.log(`Errors: ${result.errors}`);
 ```
 
-### Workflow Engine (MCP)
+### MCP Integration
 
-```typescript
-import { WorkflowEngine } from '@/mcp/core/workflow-engine';
-import { WorkflowOrchestrator } from '@/mcp/core/orchestrator';
+The MCP server (`server/mcp/`) uses the shared database tables populated by this pipeline:
 
-const engine = new WorkflowEngine({
-  resourceManager,
-  database: db,
-  lifecycle: lifecycleManager,
-  executionLogger,
-  artifactStore,
-  findingStore,
-  orchestrator: new WorkflowOrchestrator({}, { resourceManager, database: db }),
-});
+- **workflows**: Read by MCP to list available workflows and retrieve phases
+- **agents**: Read by MCP to get agent personas for workflow steps
 
-const result = await engine.execute(
-  { name: 'feature-development', reason: 'Ship new flow', expected_output: 'WorkflowOutput' },
-  { projectPath: '/repo/app' }
-);
-```
+The MCP server exposes these resources via a resources-first architecture:
+- 7 resources (READ operations)
+- 2 tools (WRITE operations: `workflow.start`, `workflow.next_step`)
 
-The engine bridges orchestrator telemetry with lifecycle persistence so MCP tools see consistent executions/steps/logs without re-implementing orchestration logic.
+Workflow state is tracked in dedicated v2 tables (`workflow_executions_v2`, `workflow_steps_v2`) managed by the MCP server.
 
 ### Query Resources
 

@@ -114,36 +114,36 @@ graph TD
 
 | System | Purpose | File Location |
 |--------|---------|---------------|
-| **AgentSystem** | Lazy-loads 6 agents from markdown files | `src/domain/agents/agent-system.ts` |
-| **RuleSelector** | Context-aware rule matching with glob patterns | `src/domain/rules/rule-selector.ts` |
-| **WorkflowOrchestrator** | Multi-step workflow execution engine | `src/domain/workflows/workflow-orchestrator.ts` |
-| **StallMonitor** | Background stall detection (>30 min) | `src/domain/workflows/stall-detector.ts` |
-| **RateLimiter** | Token bucket rate limiting per task/agent | `src/domain/workflows/rate-limiter.ts` |
-| **ContextManager** | Execution context management | `src/domain/workflows/context-manager.ts` |
-| **AutoMCPLogger** | Automatic telemetry logging | `src/integrations/mcp/server/logging/request-logger.ts` |
+| **ResourceHandlers** | 7 read-only resources for workflow context | `server/mcp/resources/index.ts` |
+| **ToolHandlers** | 2 tools for workflow control (start, next_step) | `server/mcp/tools/index.ts` |
+| **WorkflowStateMachine** | State transitions and execution tracking | `server/mcp/core/workflow-state-machine.ts` |
+| **StepExecutor** | Step progression and token management | `server/mcp/core/step-executor.ts` |
+| **TokenService** | Token generation and validation | `server/mcp/core/token-service.ts` |
 
 ### Entry Point
 
 ```typescript
-// src/integrations/mcp/index.ts
+// server/mcp/server.ts
 
-async function main() {
-  // 1. Detect project
-  const projectPath = await detectCurrentProject();
+const server = new Server(
+  { name: 'midex-mcp', version: '2.0.0' },
+  { capabilities: { resources: {}, tools: {} } }
+);
 
-  // 2. Initialize database
-  const db = await initializeDatabase(projectPath);
+// Initialize database and handlers
+const db = await initDatabase();
+const resourceHandlers = new ResourceHandlers(db);
+const toolHandlers = new ToolHandlers(db);
 
-  // 3. Sync content (agents, rules, templates)
-  await syncContentDirectory(db);
+// Register resource and tool handlers
+server.setRequestHandler(ListResourcesRequestSchema, ...);
+server.setRequestHandler(ReadResourceRequestSchema, ...);
+server.setRequestHandler(ListToolsRequestSchema, ...);
+server.setRequestHandler(CallToolRequestSchema, ...);
 
-  // 4. Load active project
-  const project = await db.getProjects({ path: projectPath });
-
-  // 5. Create and start server
-  const server = new MideServer(db, project.id);
-  await server.start();
-}
+// Start server
+const transport = new StdioServerTransport();
+await server.connect(transport);
 ```
 
 ### Server Configuration
@@ -152,9 +152,9 @@ async function main() {
 // Example: .cursor/mcp.json or ~/.claude.json
 {
   "mcpServers": {
-    "mide": {
+    "midex": {
       "command": "node",
-      "args": ["/absolute/path/to/dist/integrations/mcp/index.js"],
+      "args": ["/absolute/path/to/server/dist/mcp/server.js"],
       "transport": "stdio"
     }
   }
@@ -457,7 +457,7 @@ workflow_artifacts://{execution_id}?final=true          # Final for execution
 3. Workflow completion and synthesis
 4. State validation and cleanup
 
-**Location**: `src/integrations/mcp/tools/workflow-next-step/`
+**Location**: `server/mcp/tools/index.ts` (ToolHandlers class)
 
 ---
 
