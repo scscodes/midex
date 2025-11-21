@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import fs from 'fs';
 import type {
   TelemetryEventRow,
   ExecutionRow,
@@ -14,13 +15,75 @@ import type {
 const DB_PATH = process.env.MIDE_DB_PATH || path.join(process.cwd(), 'shared', 'database', 'app.db');
 
 let dbInstance: Database.Database | null = null;
+let lastHealthCheck = 0;
+const HEALTH_CHECK_INTERVAL = 30000; // 30 seconds
 
-export function getDb(): Database.Database {
-  if (!dbInstance) {
-    dbInstance = new Database(DB_PATH, { readonly: true });
-    dbInstance.pragma('journal_mode = WAL');
+/**
+ * Initialize database connection with error handling and validation
+ */
+function initDb(): Database.Database {
+  try {
+    // Validate database file exists
+    if (!fs.existsSync(DB_PATH)) {
+      throw new Error(`Database file not found at: ${DB_PATH}`);
+    }
+
+    const db = new Database(DB_PATH, { readonly: true });
+
+    // Configure for optimal read performance
+    db.pragma('journal_mode = WAL');
+    db.pragma('synchronous = NORMAL');
+    db.pragma('cache_size = -64000'); // 64MB cache
+
+    // Verify database is accessible with a simple query
+    db.prepare('SELECT 1').get();
+
+    console.log(`[DB] Connected to database at: ${DB_PATH}`);
+    return db;
+  } catch (error) {
+    console.error(`[DB] Failed to initialize database:`, error);
+    throw new Error(`Database initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
+}
+
+/**
+ * Get database instance with health check
+ */
+export function getDb(): Database.Database {
+  const now = Date.now();
+
+  // Initialize if not exists
+  if (!dbInstance) {
+    dbInstance = initDb();
+    lastHealthCheck = now;
+    return dbInstance;
+  }
+
+  // Periodic health check
+  if (now - lastHealthCheck > HEALTH_CHECK_INTERVAL) {
+    try {
+      dbInstance.prepare('SELECT 1').get();
+      lastHealthCheck = now;
+    } catch (error) {
+      console.warn('[DB] Health check failed, reinitializing connection');
+      dbInstance = null;
+      return getDb(); // Recursive call to reinitialize
+    }
+  }
+
   return dbInstance;
+}
+
+/**
+ * Explicitly check database health
+ */
+export function checkDbHealth(): boolean {
+  try {
+    getDb().prepare('SELECT 1').get();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function getTelemetryEvents(options: {
