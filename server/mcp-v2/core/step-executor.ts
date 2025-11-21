@@ -2,8 +2,8 @@
  * Step Executor
  *
  * Coordinates workflow step execution:
- * - Validates tokens
- * - Records step completions
+ * - Validates tokens (including step mismatch detection)
+ * - Records step completions with proper status tracking
  * - Stores artifacts
  * - Generates new tokens for next steps
  * - Resolves next step from workflow definition
@@ -12,14 +12,15 @@
  */
 
 import type { Database } from 'better-sqlite3';
-import type {
-  WorkflowStep,
-  StepOutput,
-  WorkflowPhase,
-  TelemetryEventType,
-} from '../types/index.js';
+import type { WorkflowStep, StepOutput, WorkflowPhase } from '../types/index.js';
 import { TokenService } from './token-service.js';
 import { WorkflowStateMachine } from './workflow-state-machine.js';
+import {
+  TelemetryService,
+  safeJsonParse,
+  WorkflowStepRowSchema,
+  safeParseRow,
+} from '../lib/index.js';
 
 export interface StepExecutionResult {
   success: boolean;
@@ -35,10 +36,12 @@ export interface StepExecutionResult {
 export class StepExecutor {
   private tokenService: TokenService;
   private stateMachine: WorkflowStateMachine;
+  private telemetry: TelemetryService;
 
   constructor(private db: Database) {
     this.tokenService = new TokenService();
     this.stateMachine = new WorkflowStateMachine(db);
+    this.telemetry = new TelemetryService(db);
   }
 
   /**
@@ -99,7 +102,7 @@ export class StepExecutor {
       // Create execution
       this.stateMachine.createExecution(workflowName, executionId);
 
-      // Create first step
+      // Create first step with status='running' (Fix #2: proper status tracking)
       const now = new Date().toISOString();
       this.db
         .prepare(
@@ -114,7 +117,7 @@ export class StepExecutor {
           ) VALUES (?, ?, ?, ?, ?, ?)
         `
         )
-        .run(executionId, firstPhase.phase, firstPhase.agent, 'pending', now, null);
+        .run(executionId, firstPhase.phase, firstPhase.agent, 'running', now, null);
 
       // Generate token for first step
       const token = this.tokenService.generateToken(executionId, firstPhase.phase);
@@ -134,12 +137,9 @@ export class StepExecutor {
       this.stateMachine.transitionState(executionId, 'running', firstPhase.phase);
 
       // Record telemetry
-      this.recordTelemetry('workflow_started', executionId, firstPhase.phase, firstPhase.agent, {
-        workflow_name: workflowName,
-      });
-      this.recordTelemetry('token_generated', executionId, firstPhase.phase, null, {
-        step_name: firstPhase.phase,
-      });
+      this.telemetry.workflowStarted(executionId, firstPhase.phase, firstPhase.agent, workflowName);
+      this.telemetry.stepStarted(executionId, firstPhase.phase, firstPhase.agent);
+      this.telemetry.tokenGenerated(executionId, firstPhase.phase);
 
       return token;
     });
@@ -155,6 +155,10 @@ export class StepExecutor {
         new_token: token,
       };
     } catch (error) {
+      this.telemetry.workflowFailed(
+        executionId,
+        error instanceof Error ? error.message : String(error)
+      );
       return {
         success: false,
         execution_id: executionId,
@@ -175,10 +179,7 @@ export class StepExecutor {
     // Validate token
     const validation = this.tokenService.validateToken(token);
     if (!validation.valid) {
-      this.recordTelemetry('token_expired', null, null, null, {
-        error: validation.error,
-      });
-
+      this.telemetry.tokenExpired(validation.error);
       return {
         success: false,
         execution_id: '',
@@ -187,20 +188,48 @@ export class StepExecutor {
       };
     }
 
-    const { execution_id, step_name } = validation.payload;
+    const { execution_id, step_name: tokenStepName } = validation.payload;
+
+    // Fix #1: Token-step mismatch validation
+    // Verify the token's step matches the execution's current step
+    const execution = this.stateMachine.getExecution(execution_id);
+    if (!execution) {
+      this.telemetry.error(execution_id, 'continueWorkflow', 'Execution not found');
+      return {
+        success: false,
+        execution_id,
+        workflow_state: 'failed',
+        error: `Execution ${execution_id} not found`,
+      };
+    }
+
+    if (execution.current_step !== tokenStepName) {
+      this.telemetry.tokenMismatch(execution_id, tokenStepName, execution.current_step || '(none)');
+      return {
+        success: false,
+        execution_id,
+        workflow_state: execution.state,
+        error: `Token step mismatch: token is for step '${tokenStepName}' but current step is '${execution.current_step || '(none)'}'. This token may have already been used or the workflow state has changed.`,
+      };
+    }
 
     // Record token validation
-    this.recordTelemetry('token_validated', execution_id, step_name, null, {
-      step_name,
-    });
+    this.telemetry.tokenValidated(execution_id, tokenStepName);
 
     // Use transaction for atomic step completion + next step creation
     const transaction = this.db.transaction(() => {
       // Complete current step
       const now = new Date().toISOString();
-      const step = this.getStep(execution_id, step_name);
+      const step = this.getStep(execution_id, tokenStepName);
       if (!step) {
-        throw new Error(`Step ${step_name} not found`);
+        throw new Error(`Step ${tokenStepName} not found`);
+      }
+
+      // Verify step is in running state (Fix #2: proper status tracking)
+      if (step.status !== 'running') {
+        throw new Error(
+          `Step '${tokenStepName}' is in '${step.status}' state, expected 'running'. Cannot complete a step that is not running.`
+        );
       }
 
       const startedAt = step.started_at || now;
@@ -217,30 +246,24 @@ export class StepExecutor {
           WHERE execution_id = ? AND step_name = ?
         `
         )
-        .run('completed', now, durationMs, JSON.stringify(output), execution_id, step_name);
+        .run('completed', now, durationMs, JSON.stringify(output), execution_id, tokenStepName);
 
-      this.recordTelemetry('step_completed', execution_id, step_name, step.agent_name, {
-        duration_ms: durationMs,
-      });
+      this.telemetry.stepCompleted(execution_id, tokenStepName, step.agent_name, durationMs);
 
       // Store artifacts
       if (output.artifacts && output.artifacts.length > 0) {
         for (const artifactId of output.artifacts) {
-          this.recordTelemetry('artifact_stored', execution_id, step_name, null, {
-            artifact_id: artifactId,
-          });
+          this.telemetry.artifactStored(execution_id, tokenStepName, artifactId);
         }
       }
 
       // Find next phase
-      const nextPhase = this.findNextPhase(phases, step_name);
+      const nextPhase = this.findNextPhase(phases, tokenStepName);
 
       if (!nextPhase) {
         // Workflow complete
         this.stateMachine.transitionState(execution_id, 'completed', null);
-        this.recordTelemetry('workflow_completed', execution_id, null, null, {
-          total_steps: this.getStepCount(execution_id),
-        });
+        this.telemetry.workflowCompleted(execution_id, this.getStepCount(execution_id));
 
         return {
           success: true,
@@ -250,7 +273,7 @@ export class StepExecutor {
         };
       }
 
-      // Create next step
+      // Create next step with status='running' (Fix #2: proper status tracking)
       this.db
         .prepare(
           `
@@ -263,7 +286,7 @@ export class StepExecutor {
           ) VALUES (?, ?, ?, ?, ?)
         `
         )
-        .run(execution_id, nextPhase.phase, nextPhase.agent, 'pending', now);
+        .run(execution_id, nextPhase.phase, nextPhase.agent, 'running', now);
 
       // Generate token for next step
       const nextToken = this.tokenService.generateToken(execution_id, nextPhase.phase);
@@ -290,10 +313,8 @@ export class StepExecutor {
         )
         .run(nextPhase.phase, execution_id);
 
-      this.recordTelemetry('step_started', execution_id, nextPhase.phase, nextPhase.agent, null);
-      this.recordTelemetry('token_generated', execution_id, nextPhase.phase, null, {
-        step_name: nextPhase.phase,
-      });
+      this.telemetry.stepStarted(execution_id, nextPhase.phase, nextPhase.agent);
+      this.telemetry.tokenGenerated(execution_id, nextPhase.phase);
 
       return {
         success: true,
@@ -305,11 +326,27 @@ export class StepExecutor {
       };
     });
 
-    return transaction();
+    try {
+      return transaction();
+    } catch (error) {
+      this.telemetry.stepFailed(
+        execution_id,
+        tokenStepName,
+        null,
+        error instanceof Error ? error.message : String(error)
+      );
+      return {
+        success: false,
+        execution_id,
+        workflow_state: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   /**
    * Get step by execution ID and step name
+   * Uses Zod schema validation for type safety
    */
   private getStep(executionId: string, stepName: string): WorkflowStep | null {
     const row = this.db
@@ -319,23 +356,30 @@ export class StepExecutor {
         WHERE execution_id = ? AND step_name = ?
       `
       )
-      .get(executionId, stepName) as any;
+      .get(executionId, stepName);
 
     if (!row) {
       return null;
     }
 
+    // Validate with Zod schema
+    const parsed = safeParseRow(WorkflowStepRowSchema, row);
+    if (!parsed) {
+      this.telemetry.error(executionId, 'getStep', `Invalid step row data for ${stepName}`);
+      return null;
+    }
+
     return {
-      id: row.id,
-      execution_id: row.execution_id,
-      step_name: row.step_name,
-      agent_name: row.agent_name,
-      status: row.status,
-      started_at: row.started_at,
-      completed_at: row.completed_at,
-      duration_ms: row.duration_ms,
-      output: row.output ? JSON.parse(row.output) : null,
-      token: row.token,
+      id: parsed.id,
+      execution_id: parsed.execution_id,
+      step_name: parsed.step_name,
+      agent_name: parsed.agent_name,
+      status: parsed.status,
+      started_at: parsed.started_at,
+      completed_at: parsed.completed_at,
+      duration_ms: parsed.duration_ms,
+      output: safeJsonParse(parsed.output, null),
+      token: parsed.token,
     };
   }
 
@@ -350,9 +394,9 @@ export class StepExecutor {
         WHERE execution_id = ?
       `
       )
-      .get(executionId) as any;
+      .get(executionId) as { count: number } | undefined;
 
-    return result.count;
+    return result?.count ?? 0;
   }
 
   /**
@@ -364,6 +408,7 @@ export class StepExecutor {
 
   /**
    * Find next phase (simple sequential for v1)
+   * Note: dependsOn field is not yet implemented; phases execute in array order
    */
   private findNextPhase(phases: WorkflowPhase[], currentPhase: string): WorkflowPhase | null {
     const currentIndex = phases.findIndex((p) => p.phase === currentPhase);
@@ -371,37 +416,6 @@ export class StepExecutor {
       return null;
     }
     return phases[currentIndex + 1];
-  }
-
-  /**
-   * Record telemetry event
-   */
-  private recordTelemetry(
-    eventType: TelemetryEventType,
-    executionId: string | null,
-    stepName: string | null,
-    agentName: string | null,
-    metadata: Record<string, unknown> | null
-  ): void {
-    this.db
-      .prepare(
-        `
-        INSERT INTO telemetry_events_v2 (
-          event_type,
-          execution_id,
-          step_name,
-          agent_name,
-          metadata
-        ) VALUES (?, ?, ?, ?, ?)
-      `
-      )
-      .run(
-        eventType,
-        executionId,
-        stepName,
-        agentName,
-        metadata ? JSON.stringify(metadata) : null
-      );
   }
 
   /**
@@ -416,19 +430,26 @@ export class StepExecutor {
         ORDER BY id ASC
       `
       )
-      .all(executionId) as any[];
+      .all(executionId) as unknown[];
 
-    return rows.map((row) => ({
-      id: row.id,
-      execution_id: row.execution_id,
-      step_name: row.step_name,
-      agent_name: row.agent_name,
-      status: row.status,
-      started_at: row.started_at,
-      completed_at: row.completed_at,
-      duration_ms: row.duration_ms,
-      output: row.output ? JSON.parse(row.output) : null,
-      token: row.token,
-    }));
+    return rows
+      .map((row) => {
+        const parsed = safeParseRow(WorkflowStepRowSchema, row);
+        if (!parsed) return null;
+
+        return {
+          id: parsed.id,
+          execution_id: parsed.execution_id,
+          step_name: parsed.step_name,
+          agent_name: parsed.agent_name,
+          status: parsed.status,
+          started_at: parsed.started_at,
+          completed_at: parsed.completed_at,
+          duration_ms: parsed.duration_ms,
+          output: safeJsonParse(parsed.output, null),
+          token: parsed.token,
+        };
+      })
+      .filter((step): step is WorkflowStep => step !== null);
   }
 }

@@ -223,7 +223,7 @@ describe('Workflow Execution Integration', () => {
       const steps = stepExecutor.getSteps('exec_007');
       expect(steps.length).toBe(1);
       expect(steps[0].step_name).toBe('design');
-      expect(steps[0].status).toBe('pending');
+      expect(steps[0].status).toBe('running'); // Steps start in 'running' state
     });
 
     it('should continue workflow through all steps', () => {
@@ -365,7 +365,7 @@ describe('Workflow Execution Integration', () => {
       const stepsAfter = stepExecutor.getSteps('exec_011');
       expect(stepsAfter.length).toBe(2);
       expect(stepsAfter[0].status).toBe('completed');
-      expect(stepsAfter[1].status).toBe('pending');
+      expect(stepsAfter[1].status).toBe('running'); // Next step starts in 'running' state
     });
   });
 });

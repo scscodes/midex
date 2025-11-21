@@ -15,30 +15,24 @@
  */
 
 import type { Database } from 'better-sqlite3';
-import type {
-  WorkflowDefinition,
-  WorkflowExecution,
-  WorkflowStep,
-  WorkflowArtifact,
-  TelemetryEvent,
-} from '../types/index.js';
+import {
+  safeJsonParse,
+  buildResourceSuccess,
+  buildResourceError,
+  WorkflowExecutionRowSchema,
+  WorkflowStepRowSchema,
+  WorkflowArtifactRowSchema,
+  TelemetryEventRowSchema,
+  WorkflowDefinitionRowSchema,
+  AgentRowSchema,
+  safeParseRow,
+} from '../lib/index.js';
 
 export interface ResourceContent {
   uri: string;
   mimeType: string;
   text?: string;
-}
-
-/**
- * Safely parse JSON with fallback - prevents crashes on corrupted DB data
- */
-function safeJsonParse<T>(json: string | null | undefined, fallback: T): T {
-  if (!json) return fallback;
-  try {
-    return JSON.parse(json);
-  } catch {
-    return fallback;
-  }
+  isError?: boolean;
 }
 
 export class ResourceHandlers {
@@ -60,21 +54,23 @@ export class ResourceHandlers {
         ORDER BY name ASC
       `
       )
-      .all() as any[];
+      .all() as unknown[];
 
-    const workflows = rows.map((row) => ({
-      name: row.name,
-      description: row.description,
-      tags: safeJsonParse(row.tags, []),
-      complexity: row.complexity,
-      phases: safeJsonParse(row.phases, []),
-    }));
+    const workflows = rows
+      .map((row) => {
+        const parsed = safeParseRow(WorkflowDefinitionRowSchema, row);
+        if (!parsed) return null;
+        return {
+          name: parsed.name,
+          description: parsed.description,
+          tags: safeJsonParse(parsed.tags, []),
+          complexity: parsed.complexity,
+          phases: safeJsonParse(parsed.phases, []),
+        };
+      })
+      .filter((w) => w !== null);
 
-    return {
-      uri: 'midex://workflow/available_workflows',
-      mimeType: 'application/json',
-      text: JSON.stringify(workflows, null, 2),
-    };
+    return buildResourceSuccess('midex://workflow/available_workflows', workflows);
   }
 
   // ============================================================================
@@ -85,6 +81,8 @@ export class ResourceHandlers {
    * Get detailed workflow definition including full content
    */
   async getWorkflowDetails(workflowName: string): Promise<ResourceContent> {
+    const uri = `midex://workflow/workflow_details/${workflowName}`;
+
     const row = this.db
       .prepare(
         `
@@ -93,30 +91,27 @@ export class ResourceHandlers {
         WHERE name = ?
       `
       )
-      .get(workflowName) as any;
+      .get(workflowName);
 
     if (!row) {
-      return {
-        uri: `midex://workflow/workflow_details/${workflowName}`,
-        mimeType: 'application/json',
-        text: JSON.stringify({ error: 'Workflow not found' }),
-      };
+      return buildResourceError(uri, 'Workflow not found');
+    }
+
+    const parsed = safeParseRow(WorkflowDefinitionRowSchema, row);
+    if (!parsed) {
+      return buildResourceError(uri, 'Invalid workflow data in database');
     }
 
     const workflow = {
-      name: row.name,
-      description: row.description,
-      content: row.content,
-      tags: safeJsonParse(row.tags, []),
-      complexity: row.complexity,
-      phases: safeJsonParse(row.phases, []),
+      name: parsed.name,
+      description: parsed.description,
+      content: parsed.content,
+      tags: safeJsonParse(parsed.tags, []),
+      complexity: parsed.complexity,
+      phases: safeJsonParse(parsed.phases, []),
     };
 
-    return {
-      uri: `midex://workflow/workflow_details/${workflowName}`,
-      mimeType: 'application/json',
-      text: JSON.stringify(workflow, null, 2),
-    };
+    return buildResourceSuccess(uri, workflow);
   }
 
   // ============================================================================
@@ -128,56 +123,56 @@ export class ResourceHandlers {
    * This is the PRIMARY resource for LLM consumption
    */
   async getCurrentStep(executionId: string): Promise<ResourceContent> {
+    const uri = `midex://workflow/current_step/${executionId}`;
+
     // Get execution
-    const execution = this.db
+    const executionRow = this.db
       .prepare(
         `
         SELECT * FROM workflow_executions_v2
         WHERE execution_id = ?
       `
       )
-      .get(executionId) as any;
+      .get(executionId);
 
+    if (!executionRow) {
+      return buildResourceError(uri, 'Execution not found');
+    }
+
+    const execution = safeParseRow(WorkflowExecutionRowSchema, executionRow);
     if (!execution) {
-      return {
-        uri: `midex://workflow/current_step/${executionId}`,
-        mimeType: 'application/json',
-        text: JSON.stringify({ error: 'Execution not found' }),
-      };
+      return buildResourceError(uri, 'Invalid execution data in database');
     }
 
     if (!execution.current_step) {
-      return {
-        uri: `midex://workflow/current_step/${executionId}`,
-        mimeType: 'application/json',
-        text: JSON.stringify({
-          execution_id: executionId,
-          workflow_state: execution.state,
-          message: 'No active step (workflow may be completed)',
-        }),
-      };
+      return buildResourceSuccess(uri, {
+        execution_id: executionId,
+        workflow_state: execution.state,
+        message: 'No active step (workflow may be completed or not started)',
+      });
     }
 
     // Get current step
-    const step = this.db
+    const stepRow = this.db
       .prepare(
         `
         SELECT * FROM workflow_steps_v2
         WHERE execution_id = ? AND step_name = ?
       `
       )
-      .get(executionId, execution.current_step) as any;
+      .get(executionId, execution.current_step);
 
+    if (!stepRow) {
+      return buildResourceError(uri, 'Current step not found in database');
+    }
+
+    const step = safeParseRow(WorkflowStepRowSchema, stepRow);
     if (!step) {
-      return {
-        uri: `midex://workflow/current_step/${executionId}`,
-        mimeType: 'application/json',
-        text: JSON.stringify({ error: 'Current step not found' }),
-      };
+      return buildResourceError(uri, 'Invalid step data in database');
     }
 
     // Get agent content
-    const agent = this.db
+    const agentRow = this.db
       .prepare(
         `
         SELECT name, description, content
@@ -185,12 +180,18 @@ export class ResourceHandlers {
         WHERE name = ?
       `
       )
-      .get(step.agent_name) as any;
+      .get(step.agent_name);
 
-    const agentContent = agent ? agent.content : '(Agent content not found)';
+    const agent = safeParseRow(AgentRowSchema, agentRow);
+    if (!agent) {
+      return buildResourceError(
+        uri,
+        `Agent '${step.agent_name}' not found. The workflow cannot proceed without a valid agent persona.`
+      );
+    }
 
     // Get workflow definition for context
-    const workflow = this.db
+    const workflowRow = this.db
       .prepare(
         `
         SELECT name, description, phases
@@ -198,10 +199,11 @@ export class ResourceHandlers {
         WHERE name = ?
       `
       )
-      .get(execution.workflow_name) as any;
+      .get(execution.workflow_name);
 
-    const phases = safeJsonParse(workflow?.phases, []);
-    const currentPhaseIndex = phases.findIndex((p: any) => p.phase === step.step_name);
+    const workflow = safeParseRow(WorkflowDefinitionRowSchema, workflowRow);
+    const phases = workflow ? safeJsonParse(workflow.phases, []) : [];
+    const currentPhaseIndex = phases.findIndex((p: { phase: string }) => p.phase === step.step_name);
     const totalPhases = phases.length;
 
     const response = {
@@ -211,23 +213,21 @@ export class ResourceHandlers {
       current_step: step.step_name,
       step_status: step.status,
       agent_name: step.agent_name,
-      progress: `${currentPhaseIndex + 1}/${totalPhases}`,
+      progress: totalPhases > 0 ? `${currentPhaseIndex + 1}/${totalPhases}` : 'unknown',
       continuation_token: step.token,
-      agent_content: agentContent,
+      agent_content: agent.content,
       instructions: [
-        'Read the agent_content above carefully.',
-        'Execute the tasks described by the agent.',
-        'When complete, call workflow.next_step tool with:',
-        '  - token: the continuation_token from this resource',
-        '  - output: { summary, artifacts, findings, next_step_recommendation }',
+        '1. Read the agent_content above carefully - this defines your persona for this step.',
+        '2. Execute the tasks described by the agent.',
+        '3. When complete, call workflow.next_step tool with:',
+        '   - token: the continuation_token from this resource',
+        '   - output: { summary: "...", artifacts?: [...], findings?: [...] }',
+        '',
+        'IMPORTANT: The token is single-use. Once you call next_step, this token expires.',
       ].join('\n'),
     };
 
-    return {
-      uri: `midex://workflow/current_step/${executionId}`,
-      mimeType: 'application/json',
-      text: JSON.stringify(response, null, 2),
-    };
+    return buildResourceSuccess(uri, response);
   }
 
   // ============================================================================
@@ -238,21 +238,24 @@ export class ResourceHandlers {
    * Get workflow execution status and high-level progress
    */
   async getWorkflowStatus(executionId: string): Promise<ResourceContent> {
-    const execution = this.db
+    const uri = `midex://workflow/workflow_status/${executionId}`;
+
+    const executionRow = this.db
       .prepare(
         `
         SELECT * FROM workflow_executions_v2
         WHERE execution_id = ?
       `
       )
-      .get(executionId) as any;
+      .get(executionId);
 
+    if (!executionRow) {
+      return buildResourceError(uri, 'Execution not found');
+    }
+
+    const execution = safeParseRow(WorkflowExecutionRowSchema, executionRow);
     if (!execution) {
-      return {
-        uri: `midex://workflow/workflow_status/${executionId}`,
-        mimeType: 'application/json',
-        text: JSON.stringify({ error: 'Execution not found' }),
-      };
+      return buildResourceError(uri, 'Invalid execution data in database');
     }
 
     // Get step counts
@@ -269,7 +272,13 @@ export class ResourceHandlers {
         WHERE execution_id = ?
       `
       )
-      .get(executionId) as any;
+      .get(executionId) as {
+      total: number;
+      completed: number;
+      failed: number;
+      running: number;
+      pending: number;
+    };
 
     const response = {
       execution_id: executionId,
@@ -289,11 +298,7 @@ export class ResourceHandlers {
       },
     };
 
-    return {
-      uri: `midex://workflow/workflow_status/${executionId}`,
-      mimeType: 'application/json',
-      text: JSON.stringify(response, null, 2),
-    };
+    return buildResourceSuccess(uri, response);
   }
 
   // ============================================================================
@@ -304,7 +309,9 @@ export class ResourceHandlers {
    * Get complete step history for an execution
    */
   async getStepHistory(executionId: string): Promise<ResourceContent> {
-    const steps = this.db
+    const uri = `midex://workflow/step_history/${executionId}`;
+
+    const rows = this.db
       .prepare(
         `
         SELECT * FROM workflow_steps_v2
@@ -312,23 +319,25 @@ export class ResourceHandlers {
         ORDER BY id ASC
       `
       )
-      .all(executionId) as any[];
+      .all(executionId) as unknown[];
 
-    const history = steps.map((step) => ({
-      step_name: step.step_name,
-      agent_name: step.agent_name,
-      status: step.status,
-      started_at: step.started_at,
-      completed_at: step.completed_at,
-      duration_ms: step.duration_ms,
-      output: safeJsonParse(step.output, null),
-    }));
+    const history = rows
+      .map((row) => {
+        const step = safeParseRow(WorkflowStepRowSchema, row);
+        if (!step) return null;
+        return {
+          step_name: step.step_name,
+          agent_name: step.agent_name,
+          status: step.status,
+          started_at: step.started_at,
+          completed_at: step.completed_at,
+          duration_ms: step.duration_ms,
+          output: safeJsonParse(step.output, null),
+        };
+      })
+      .filter((s) => s !== null);
 
-    return {
-      uri: `midex://workflow/step_history/${executionId}`,
-      mimeType: 'application/json',
-      text: JSON.stringify(history, null, 2),
-    };
+    return buildResourceSuccess(uri, history);
   }
 
   // ============================================================================
@@ -338,15 +347,16 @@ export class ResourceHandlers {
   /**
    * Get artifacts produced by workflow
    */
-  async getWorkflowArtifacts(
-    executionId: string,
-    stepName?: string
-  ): Promise<ResourceContent> {
+  async getWorkflowArtifacts(executionId: string, stepName?: string): Promise<ResourceContent> {
+    const uri = stepName
+      ? `midex://workflow/workflow_artifacts/${executionId}/${stepName}`
+      : `midex://workflow/workflow_artifacts/${executionId}`;
+
     let query = `
       SELECT * FROM workflow_artifacts_v2
       WHERE execution_id = ?
     `;
-    const params: any[] = [executionId];
+    const params: (string | number)[] = [executionId];
 
     if (stepName) {
       query += ` AND step_name = ?`;
@@ -355,30 +365,27 @@ export class ResourceHandlers {
 
     query += ` ORDER BY created_at ASC`;
 
-    const artifacts = this.db.prepare(query).all(...params) as any[];
+    const rows = this.db.prepare(query).all(...params) as unknown[];
 
-    const response = artifacts.map((artifact) => ({
-      id: artifact.id,
-      step_name: artifact.step_name,
-      artifact_type: artifact.artifact_type,
-      name: artifact.name,
-      content_type: artifact.content_type,
-      size_bytes: artifact.size_bytes,
-      metadata: safeJsonParse(artifact.metadata, null),
-      created_at: artifact.created_at,
-      // Content not included in list view (too large)
-      // Use direct DB query if needed
-    }));
+    const artifacts = rows
+      .map((row) => {
+        const artifact = safeParseRow(WorkflowArtifactRowSchema, row);
+        if (!artifact) return null;
+        return {
+          id: artifact.id,
+          step_name: artifact.step_name,
+          artifact_type: artifact.artifact_type,
+          name: artifact.name,
+          content_type: artifact.content_type,
+          size_bytes: artifact.size_bytes,
+          metadata: safeJsonParse(artifact.metadata, null),
+          created_at: artifact.created_at,
+          // Content not included in list view (too large)
+        };
+      })
+      .filter((a) => a !== null);
 
-    const uri = stepName
-      ? `midex://workflow/workflow_artifacts/${executionId}/${stepName}`
-      : `midex://workflow/workflow_artifacts/${executionId}`;
-
-    return {
-      uri,
-      mimeType: 'application/json',
-      text: JSON.stringify(response, null, 2),
-    };
+    return buildResourceSuccess(uri, artifacts);
   }
 
   // ============================================================================
@@ -396,8 +403,12 @@ export class ResourceHandlers {
     // Validate and cap limit to prevent excessive queries
     const safeLimit = Math.min(Math.max(1, isNaN(limit) ? 100 : limit), 1000);
 
+    let uri = 'midex://workflow/telemetry';
+    if (executionId) uri += `/${executionId}`;
+    if (eventType) uri += `?event_type=${eventType}`;
+
     let query = `SELECT * FROM telemetry_events_v2 WHERE 1=1`;
-    const params: any[] = [];
+    const params: (string | number)[] = [];
 
     if (executionId) {
       query += ` AND execution_id = ?`;
@@ -412,26 +423,24 @@ export class ResourceHandlers {
     query += ` ORDER BY created_at DESC LIMIT ?`;
     params.push(safeLimit);
 
-    const events = this.db.prepare(query).all(...params) as any[];
+    const rows = this.db.prepare(query).all(...params) as unknown[];
 
-    const response = events.map((event) => ({
-      id: event.id,
-      event_type: event.event_type,
-      execution_id: event.execution_id,
-      step_name: event.step_name,
-      agent_name: event.agent_name,
-      metadata: safeJsonParse(event.metadata, null),
-      created_at: event.created_at,
-    }));
+    const events = rows
+      .map((row) => {
+        const event = safeParseRow(TelemetryEventRowSchema, row);
+        if (!event) return null;
+        return {
+          id: event.id,
+          event_type: event.event_type,
+          execution_id: event.execution_id,
+          step_name: event.step_name,
+          agent_name: event.agent_name,
+          metadata: safeJsonParse(event.metadata, null),
+          created_at: event.created_at,
+        };
+      })
+      .filter((e) => e !== null);
 
-    let uri = 'midex://workflow/telemetry';
-    if (executionId) uri += `/${executionId}`;
-    if (eventType) uri += `?event_type=${eventType}`;
-
-    return {
-      uri,
-      mimeType: 'application/json',
-      text: JSON.stringify(response, null, 2),
-    };
+    return buildResourceSuccess(uri, events);
   }
 }

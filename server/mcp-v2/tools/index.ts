@@ -4,14 +4,23 @@
  * MCP tools provide WRITE operations for workflow control.
  *
  * Available Tools:
- * 1. workflow.next_step - Continue workflow to next step
+ * 1. workflow.start - Start a new workflow execution
+ * 2. workflow.next_step - Continue workflow to next step
  */
 
 import type { Database } from 'better-sqlite3';
-import type { NextStepArgs, NextStepResult, WorkflowPhase } from '../types/index.js';
+import type { NextStepResult, WorkflowPhase } from '../types/index.js';
 import { NextStepArgsSchema } from '../types/index.js';
 import { StepExecutor } from '../core/step-executor.js';
 import { TokenService } from '../core/token-service.js';
+import {
+  safeJsonParse,
+  buildToolError,
+  buildToolSuccess,
+  StartWorkflowArgsSchema,
+  AgentRowSchema,
+  safeParseRow,
+} from '../lib/index.js';
 
 export interface ToolResult {
   content: Array<{
@@ -19,18 +28,6 @@ export interface ToolResult {
     text: string;
   }>;
   isError?: boolean;
-}
-
-/**
- * Safely parse JSON with fallback
- */
-function safeJsonParse<T>(json: string | null, fallback: T): T {
-  if (!json) return fallback;
-  try {
-    return JSON.parse(json);
-  } catch {
-    return fallback;
-  }
 }
 
 export class ToolHandlers {
@@ -70,253 +67,202 @@ export class ToolHandlers {
    * - error?: string
    */
   async nextStep(args: unknown): Promise<ToolResult> {
-    try {
-      // Validate arguments
-      const parsed = NextStepArgsSchema.safeParse(args);
-      if (!parsed.success) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: `Invalid arguments: ${parsed.error.message}`,
-              }),
-            },
-          ],
-          isError: true,
-        };
-      }
+    // Validate arguments with Zod schema
+    const parsed = NextStepArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return buildToolError(`Invalid arguments: ${parsed.error.message}`);
+    }
 
-      const { token, output } = parsed.data;
+    const { token, output } = parsed.data;
 
-      // Validate token to get execution_id (use instance, not dynamic import)
-      const validation = this.tokenService.validateToken(token);
+    // Validate token to get execution_id
+    const validation = this.tokenService.validateToken(token);
+    if (!validation.valid) {
+      return buildToolError(validation.error);
+    }
 
-      if (!validation.valid) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: validation.error,
-              }),
-            },
-          ],
-          isError: true,
-        };
-      }
+    const { execution_id } = validation.payload;
 
-      const { execution_id } = validation.payload;
-
-      // Get workflow name
-      const execution = this.db
-        .prepare(
-          `
-          SELECT workflow_name FROM workflow_executions_v2
-          WHERE execution_id = ?
+    // Get workflow name
+    const execution = this.db
+      .prepare(
         `
-        )
-        .get(execution_id) as any;
+        SELECT workflow_name FROM workflow_executions_v2
+        WHERE execution_id = ?
+      `
+      )
+      .get(execution_id) as { workflow_name: string } | undefined;
 
-      if (!execution) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: 'Execution not found',
-              }),
-            },
-          ],
-          isError: true,
-        };
-      }
+    if (!execution) {
+      return buildToolError('Execution not found');
+    }
 
-      // Get workflow phases
-      const workflow = this.db
+    // Get workflow phases
+    const workflow = this.db
+      .prepare(
+        `
+        SELECT phases FROM workflows
+        WHERE name = ?
+      `
+      )
+      .get(execution.workflow_name) as { phases: string } | undefined;
+
+    if (!workflow || !workflow.phases) {
+      return buildToolError('Workflow phases not found');
+    }
+
+    const phases: WorkflowPhase[] = safeJsonParse(workflow.phases, []);
+
+    // Continue workflow
+    const result = this.stepExecutor.continueWorkflow(token, output, phases);
+
+    // If failed, return error
+    if (!result.success) {
+      return buildToolError(result.error || 'Unknown error');
+    }
+
+    // If successful and there's a next step, get agent content
+    if (result.step_name && result.agent_name) {
+      const agentRow = this.db
         .prepare(
           `
-          SELECT phases FROM workflows
+          SELECT name, description, content FROM agents
           WHERE name = ?
         `
         )
-        .get(execution.workflow_name) as any;
+        .get(result.agent_name);
 
-      if (!workflow || !workflow.phases) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: 'Workflow phases not found',
-              }),
-            },
-          ],
-          isError: true,
-        };
+      // Fix #3: Agent not found should fail workflow
+      const agent = safeParseRow(AgentRowSchema, agentRow);
+      if (!agent) {
+        return buildToolError(
+          `Agent '${result.agent_name}' not found in content registry. ` +
+            `The workflow cannot continue without a valid agent persona. ` +
+            `Please ensure the agent exists in the agents table.`
+        );
       }
 
-      const phases: WorkflowPhase[] = safeJsonParse(workflow.phases, []);
-
-      // Continue workflow
-      const result = this.stepExecutor.continueWorkflow(token, output, phases);
-
-      // If successful and there's a next step, get agent content
-      if (result.success && result.step_name && result.agent_name) {
-        const agent = this.db
-          .prepare(
-            `
-            SELECT content FROM agents
-            WHERE name = ?
-          `
-          )
-          .get(result.agent_name) as any;
-
-        const agentContent = agent ? agent.content : '(Agent content not found)';
-
-        const response: NextStepResult = {
-          success: true,
-          execution_id: result.execution_id,
-          step_name: result.step_name,
-          agent_content: agentContent,
-          workflow_state: result.workflow_state as any,
-          new_token: result.new_token,
-          message: `Step '${result.step_name}' ready. Review agent_content and continue.`,
-        };
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(response, null, 2),
-            },
-          ],
-        };
-      }
-
-      // Workflow completed or other terminal state
       const response: NextStepResult = {
         success: true,
         execution_id: result.execution_id,
+        step_name: result.step_name,
+        agent_content: agent.content,
         workflow_state: result.workflow_state as any,
-        message: result.message || 'Workflow completed',
+        new_token: result.new_token,
+        message: `Step '${result.step_name}' ready. Review agent_content and continue.`,
       };
 
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(response, null, 2),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              success: false,
-              error: error instanceof Error ? error.message : String(error),
-            }),
-          },
-        ],
-        isError: true,
-      };
+      return buildToolSuccess(response);
     }
+
+    // Workflow completed or other terminal state
+    const response: NextStepResult = {
+      success: true,
+      execution_id: result.execution_id,
+      workflow_state: result.workflow_state as any,
+      message: result.message || 'Workflow completed',
+    };
+
+    return buildToolSuccess(response);
   }
+
+  // ============================================================================
+  // Tool: workflow.start
+  // ============================================================================
 
   /**
    * Start a new workflow execution
-   * This is a convenience method (could also be exposed as a tool)
+   *
+   * Arguments:
+   * - workflow_name: Name of workflow to start (required)
+   * - execution_id: Optional custom execution ID (generated if not provided)
+   *
+   * Returns:
+   * - success: boolean
+   * - execution_id: string
+   * - step_name: string (first step)
+   * - agent_content: string (first agent persona)
+   * - workflow_state: string
+   * - new_token: string (token for first step)
+   * - message?: string
+   * - error?: string
    */
   async startWorkflow(workflowName: string, executionId: string): Promise<ToolResult> {
-    try {
-      // Get workflow phases
-      const workflow = this.db
-        .prepare(
-          `
-          SELECT phases FROM workflows
-          WHERE name = ?
-        `
-        )
-        .get(workflowName) as any;
+    // Validate inputs with Zod schema
+    const validation = StartWorkflowArgsSchema.safeParse({
+      workflow_name: workflowName,
+      execution_id: executionId,
+    });
 
-      if (!workflow || !workflow.phases) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: `Workflow '${workflowName}' not found`,
-              }),
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      const phases: WorkflowPhase[] = safeJsonParse(workflow.phases, []);
-
-      // Start workflow
-      const result = this.stepExecutor.startWorkflow(workflowName, executionId, phases);
-
-      if (!result.success) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result),
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      // Get agent content for first step
-      const agent = this.db
-        .prepare(
-          `
-          SELECT content FROM agents
-          WHERE name = ?
-        `
-        )
-        .get(result.agent_name) as any;
-
-      const agentContent = agent ? agent.content : '(Agent content not found)';
-
-      const response = {
-        ...result,
-        agent_content: agentContent,
-        message: `Workflow '${workflowName}' started. Step '${result.step_name}' ready.`,
-      };
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(response, null, 2),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              success: false,
-              error: error instanceof Error ? error.message : String(error),
-            }),
-          },
-        ],
-        isError: true,
-      };
+    if (!validation.success) {
+      return buildToolError(`Invalid arguments: ${validation.error.message}`);
     }
+
+    // Get workflow phases
+    const workflow = this.db
+      .prepare(
+        `
+        SELECT phases FROM workflows
+        WHERE name = ?
+      `
+      )
+      .get(workflowName) as { phases: string } | undefined;
+
+    if (!workflow || !workflow.phases) {
+      return buildToolError(`Workflow '${workflowName}' not found`);
+    }
+
+    const phases: WorkflowPhase[] = safeJsonParse(workflow.phases, []);
+
+    if (phases.length === 0) {
+      return buildToolError(`Workflow '${workflowName}' has no phases defined`);
+    }
+
+    // Start workflow
+    const result = this.stepExecutor.startWorkflow(workflowName, executionId, phases);
+
+    if (!result.success) {
+      return buildToolError(result.error || 'Failed to start workflow');
+    }
+
+    // Get agent content for first step
+    // Fix #3: Agent not found should fail workflow
+    const agentRow = this.db
+      .prepare(
+        `
+        SELECT name, description, content FROM agents
+        WHERE name = ?
+      `
+      )
+      .get(result.agent_name);
+
+    const agent = safeParseRow(AgentRowSchema, agentRow);
+    if (!agent) {
+      return buildToolError(
+        `Agent '${result.agent_name}' not found in content registry. ` +
+          `The workflow cannot start without a valid agent persona for the first step. ` +
+          `Please ensure the agent exists in the agents table.`
+      );
+    }
+
+    const response = {
+      success: true,
+      execution_id: result.execution_id,
+      step_name: result.step_name,
+      agent_name: result.agent_name,
+      agent_content: agent.content,
+      workflow_state: result.workflow_state,
+      new_token: result.new_token,
+      message: `Workflow '${workflowName}' started. Step '${result.step_name}' ready.`,
+      instructions: [
+        '1. Read the agent_content above carefully - this is your persona for this step.',
+        '2. Execute the tasks described by the agent persona.',
+        '3. When complete, call workflow.next_step with:',
+        '   - token: the new_token from this response',
+        '   - output: { summary: "what you accomplished", artifacts?: [...], findings?: [...] }',
+      ].join('\n'),
+    };
+
+    return buildToolSuccess(response);
   }
 }

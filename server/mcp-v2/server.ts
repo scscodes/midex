@@ -26,6 +26,7 @@ import { initDatabase } from '../database/index.js';
 import { getDatabasePath } from '../shared/config.js';
 import { ResourceHandlers } from './resources/index.js';
 import { ToolHandlers } from './tools/index.js';
+import { StartWorkflowArgsSchema, buildResourceError } from './lib/index.js';
 
 /**
  * MCP Server configuration
@@ -194,16 +195,9 @@ async function main() {
         contents: [result],
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return {
-        contents: [
-          {
-            uri,
-            mimeType: 'application/json',
-            text: JSON.stringify({
-              error: error instanceof Error ? error.message : String(error),
-            }),
-          },
-        ],
+        contents: [buildResourceError(uri, errorMessage)],
       };
     }
   });
@@ -309,7 +303,24 @@ async function main() {
           break;
 
         case 'workflow.start': {
-          const { workflow_name, execution_id } = args as any;
+          // Validate args with Zod schema
+          const validation = StartWorkflowArgsSchema.safeParse(args);
+          if (!validation.success) {
+            return {
+              content: [
+                {
+                  type: 'text' as const,
+                  text: JSON.stringify({
+                    success: false,
+                    error: `Invalid arguments: ${validation.error.message}`,
+                  }),
+                },
+              ],
+              isError: true,
+            };
+          }
+
+          const { workflow_name, execution_id } = validation.data;
           const execId = execution_id || `exec_${Date.now()}_${Math.random().toString(36).slice(2)}`;
           result = await toolHandlers.startWorkflow(workflow_name, execId);
           break;

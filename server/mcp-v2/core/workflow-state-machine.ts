@@ -16,14 +16,20 @@
  */
 
 import type { Database } from 'better-sqlite3';
-import type {
-  WorkflowState,
-  WorkflowExecution,
-  TelemetryEventType,
-} from '../types/index.js';
+import type { WorkflowState, WorkflowExecution } from '../types/index.js';
+import {
+  TelemetryService,
+  safeJsonParse,
+  WorkflowExecutionRowSchema,
+  safeParseRow,
+} from '../lib/index.js';
 
 export class WorkflowStateMachine {
-  constructor(private db: Database) {}
+  private telemetry: TelemetryService;
+
+  constructor(private db: Database) {
+    this.telemetry = new TelemetryService(db);
+  }
 
   /**
    * Create a new workflow execution
@@ -52,9 +58,7 @@ export class WorkflowStateMachine {
       throw new Error(`Failed to create execution: ${executionId}`);
     }
 
-    this.recordTelemetry('workflow_created', executionId, null, null, {
-      workflow_name: workflowName,
-    });
+    this.telemetry.workflowCreated(executionId, workflowName);
 
     // Verify we can retrieve the execution
     const execution = this.getExecution(executionId);
@@ -67,6 +71,7 @@ export class WorkflowStateMachine {
 
   /**
    * Get workflow execution by ID
+   * Uses Zod schema validation for type safety
    */
   getExecution(executionId: string): WorkflowExecution | null {
     const row = this.db
@@ -76,22 +81,29 @@ export class WorkflowStateMachine {
         WHERE execution_id = ?
       `
       )
-      .get(executionId) as any;
+      .get(executionId);
 
     if (!row) {
       return null;
     }
 
+    // Validate with Zod schema
+    const parsed = safeParseRow(WorkflowExecutionRowSchema, row);
+    if (!parsed) {
+      this.telemetry.error(executionId, 'getExecution', 'Invalid execution row data');
+      return null;
+    }
+
     return {
-      execution_id: row.execution_id,
-      workflow_name: row.workflow_name,
-      state: row.state as WorkflowState,
-      current_step: row.current_step,
-      started_at: row.started_at,
-      updated_at: row.updated_at,
-      completed_at: row.completed_at,
-      duration_ms: row.duration_ms,
-      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+      execution_id: parsed.execution_id,
+      workflow_name: parsed.workflow_name,
+      state: parsed.state as WorkflowState,
+      current_step: parsed.current_step,
+      started_at: parsed.started_at,
+      updated_at: parsed.updated_at,
+      completed_at: parsed.completed_at,
+      duration_ms: parsed.duration_ms,
+      metadata: safeJsonParse(parsed.metadata, null),
     };
   }
 
@@ -135,7 +147,7 @@ export class WorkflowStateMachine {
       .run(newState, currentStep ?? null, now, completedAt, durationMs, executionId);
 
     // Record telemetry
-    this.recordTelemetry('workflow_state_transition', executionId, currentStep ?? null, null, {
+    this.telemetry.record('workflow_state_transition', executionId, currentStep ?? null, null, {
       old_state: oldState,
       new_state: newState,
     });
@@ -169,37 +181,6 @@ export class WorkflowStateMachine {
   }
 
   /**
-   * Record telemetry event
-   */
-  private recordTelemetry(
-    eventType: TelemetryEventType,
-    executionId: string | null,
-    stepName: string | null,
-    agentName: string | null,
-    metadata: Record<string, unknown> | null
-  ): void {
-    this.db
-      .prepare(
-        `
-        INSERT INTO telemetry_events_v2 (
-          event_type,
-          execution_id,
-          step_name,
-          agent_name,
-          metadata
-        ) VALUES (?, ?, ?, ?, ?)
-      `
-      )
-      .run(
-        eventType,
-        executionId,
-        stepName,
-        agentName,
-        metadata ? JSON.stringify(metadata) : null
-      );
-  }
-
-  /**
    * Get all executions for a workflow
    */
   getExecutionsByWorkflow(workflowName: string): WorkflowExecution[] {
@@ -211,19 +192,26 @@ export class WorkflowStateMachine {
         ORDER BY started_at DESC
       `
       )
-      .all(workflowName) as any[];
+      .all(workflowName) as unknown[];
 
-    return rows.map((row) => ({
-      execution_id: row.execution_id,
-      workflow_name: row.workflow_name,
-      state: row.state as WorkflowState,
-      current_step: row.current_step,
-      started_at: row.started_at,
-      updated_at: row.updated_at,
-      completed_at: row.completed_at,
-      duration_ms: row.duration_ms,
-      metadata: row.metadata ? JSON.parse(row.metadata) : null,
-    }));
+    return rows
+      .map((row) => {
+        const parsed = safeParseRow(WorkflowExecutionRowSchema, row);
+        if (!parsed) return null;
+
+        return {
+          execution_id: parsed.execution_id,
+          workflow_name: parsed.workflow_name,
+          state: parsed.state as WorkflowState,
+          current_step: parsed.current_step,
+          started_at: parsed.started_at,
+          updated_at: parsed.updated_at,
+          completed_at: parsed.completed_at,
+          duration_ms: parsed.duration_ms,
+          metadata: safeJsonParse(parsed.metadata, null),
+        };
+      })
+      .filter((e): e is WorkflowExecution => e !== null);
   }
 
   /**
@@ -238,18 +226,25 @@ export class WorkflowStateMachine {
         ORDER BY started_at DESC
       `
       )
-      .all(state) as any[];
+      .all(state) as unknown[];
 
-    return rows.map((row) => ({
-      execution_id: row.execution_id,
-      workflow_name: row.workflow_name,
-      state: row.state as WorkflowState,
-      current_step: row.current_step,
-      started_at: row.started_at,
-      updated_at: row.updated_at,
-      completed_at: row.completed_at,
-      duration_ms: row.duration_ms,
-      metadata: row.metadata ? JSON.parse(row.metadata) : null,
-    }));
+    return rows
+      .map((row) => {
+        const parsed = safeParseRow(WorkflowExecutionRowSchema, row);
+        if (!parsed) return null;
+
+        return {
+          execution_id: parsed.execution_id,
+          workflow_name: parsed.workflow_name,
+          state: parsed.state as WorkflowState,
+          current_step: parsed.current_step,
+          started_at: parsed.started_at,
+          updated_at: parsed.updated_at,
+          completed_at: parsed.completed_at,
+          duration_ms: parsed.duration_ms,
+          metadata: safeJsonParse(parsed.metadata, null),
+        };
+      })
+      .filter((e): e is WorkflowExecution => e !== null);
   }
 }
