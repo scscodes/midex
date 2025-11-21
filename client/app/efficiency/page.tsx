@@ -12,9 +12,13 @@ export default function EfficiencyPage() {
 
   useEffect(() => {
     fetch('/api/efficiency')
-      .then(res => res.json())
-      .then(data => {
-        setWorkflows(data);
+      .then(async res => {
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setWorkflows(data);
+          }
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));

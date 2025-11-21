@@ -14,12 +14,22 @@ export default function WorkflowDetailPage({ params }: { params: Promise<{ name:
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/workflows/${encodeURIComponent(name)}`).then(r => r.json()),
-      fetch(`/api/workflows/${encodeURIComponent(name)}/stats`).then(r => r.json()),
+      fetch(`/api/workflows/${encodeURIComponent(name)}`),
+      fetch(`/api/workflows/${encodeURIComponent(name)}/stats`),
     ])
-      .then(([workflowData, statsData]) => {
-        setWorkflow(workflowData);
-        setStats(statsData);
+      .then(async ([workflowRes, statsRes]) => {
+        if (workflowRes.ok) {
+          const workflowData = await workflowRes.json();
+          if (!workflowData.error) {
+            setWorkflow(workflowData);
+          }
+        }
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          if (!statsData.error) {
+            setStats(statsData);
+          }
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));

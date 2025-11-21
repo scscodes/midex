@@ -25,7 +25,11 @@ export default function ExecutionDetailPage() {
       try {
         const res = await fetch(`/api/executions/${id}`);
         if (res.ok) {
-          setData(await res.json());
+          const responseData = await res.json();
+          // Validate structure before setting
+          if (responseData && !responseData.error && responseData.execution) {
+            setData(responseData);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch:', err);

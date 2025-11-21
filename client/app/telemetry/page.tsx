@@ -30,16 +30,20 @@ export default function TelemetryPage() {
       if (since) params.set('since', since);
 
       const res = await fetch(`/api/telemetry?${params}`);
-      const data = await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        // Validate array before using
+        if (Array.isArray(data)) {
+          if (since && data.length > 0) {
+            setEvents((prev) => [...data, ...prev].slice(0, 200));
+          } else if (!since) {
+            setEvents(data);
+          }
 
-      if (since && data.length > 0) {
-        setEvents((prev) => [...data, ...prev].slice(0, 200));
-      } else if (!since) {
-        setEvents(data);
-      }
-
-      if (data.length > 0) {
-        lastTimestamp.current = data[0].created_at;
+          if (data.length > 0) {
+            lastTimestamp.current = data[0].created_at;
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to fetch:', err);

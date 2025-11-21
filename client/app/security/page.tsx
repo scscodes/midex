@@ -10,8 +10,14 @@ export default function SecurityPage() {
 
   useEffect(() => {
     fetch('/api/security')
-      .then(res => res.json())
-      .then(setData)
+      .then(async res => {
+        if (res.ok) {
+          const responseData = await res.json();
+          if (!responseData.error) {
+            setData(responseData);
+          }
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
