@@ -1,26 +1,7 @@
-/**
- * Shared Utilities for MCP v2
- *
- * Centralized utilities to reduce duplication and maintain consistency:
- * - JSON parsing with safety guarantees
- * - Telemetry recording
- * - Database row transformations
- */
-
 import type { Database } from 'better-sqlite3';
 import type { TelemetryEventType, TokenPayload } from '../types/index.js';
 import { TokenPayloadSchema } from '../types/index.js';
 
-// ============================================================================
-// JSON Utilities
-// ============================================================================
-
-/**
- * Safely parse JSON with fallback - prevents crashes on corrupted/malformed data
- * @param json - JSON string to parse (nullable)
- * @param fallback - Value to return on parse failure
- * @returns Parsed value or fallback
- */
 export function safeJsonParse<T>(json: string | null | undefined, fallback: T): T {
   if (!json) return fallback;
   try {
@@ -30,54 +11,21 @@ export function safeJsonParse<T>(json: string | null | undefined, fallback: T): 
   }
 }
 
-// ============================================================================
-// Token Utilities
-// ============================================================================
-
-/**
- * Decode a base64url token and extract payload without full validation
- * Use this for quick lookups where full validation will happen later
- * @param token - Base64url encoded token
- * @returns Decoded payload or null if decode fails
- */
 export function decodeTokenPayload(token: string): TokenPayload | null {
   try {
-    // Convert base64url to base64
     let base64 = token.replace(/-/g, '+').replace(/_/g, '/');
-    while (base64.length % 4 !== 0) {
-      base64 += '=';
-    }
-
+    while (base64.length % 4 !== 0) base64 += '=';
     const json = Buffer.from(base64, 'base64').toString('utf-8');
-    const payload = JSON.parse(json);
-
-    // Validate schema
-    const result = TokenPayloadSchema.safeParse(payload);
+    const result = TokenPayloadSchema.safeParse(JSON.parse(json));
     return result.success ? result.data : null;
   } catch {
     return null;
   }
 }
 
-// ============================================================================
-// Telemetry Service
-// ============================================================================
-
-/**
- * Centralized telemetry recording service
- * Ensures consistent telemetry across all MCP v2 components
- */
 export class TelemetryService {
   constructor(private db: Database) {}
 
-  /**
-   * Record a telemetry event
-   * @param eventType - Type of event (from TelemetryEventType union)
-   * @param executionId - Optional execution context
-   * @param stepName - Optional step context
-   * @param agentName - Optional agent context
-   * @param metadata - Optional additional data
-   */
   record(
     eventType: TelemetryEventType,
     executionId: string | null,
@@ -88,32 +36,15 @@ export class TelemetryService {
     try {
       this.db
         .prepare(
-          `
-          INSERT INTO telemetry_events_v2 (
-            event_type,
-            execution_id,
-            step_name,
-            agent_name,
-            metadata
-          ) VALUES (?, ?, ?, ?, ?)
-        `
+          `INSERT INTO telemetry_events_v2 (event_type, execution_id, step_name, agent_name, metadata)
+           VALUES (?, ?, ?, ?, ?)`
         )
-        .run(
-          eventType,
-          executionId,
-          stepName,
-          agentName,
-          metadata ? JSON.stringify(metadata) : null
-        );
+        .run(eventType, executionId, stepName, agentName, metadata ? JSON.stringify(metadata) : null);
     } catch (error) {
-      // Telemetry should never crash the main workflow
       console.error('Telemetry recording failed:', error);
     }
   }
 
-  /**
-   * Record workflow lifecycle events
-   */
   workflowCreated(executionId: string, workflowName: string): void {
     this.record('workflow_created', executionId, null, null, { workflow_name: workflowName });
   }
@@ -130,9 +61,6 @@ export class TelemetryService {
     this.record('workflow_failed', executionId, null, null, { error });
   }
 
-  /**
-   * Record step lifecycle events
-   */
   stepStarted(executionId: string, stepName: string, agentName: string): void {
     this.record('step_started', executionId, stepName, agentName, null);
   }
@@ -145,9 +73,6 @@ export class TelemetryService {
     this.record('step_failed', executionId, stepName, agentName, { error });
   }
 
-  /**
-   * Record token lifecycle events
-   */
   tokenGenerated(executionId: string, stepName: string): void {
     this.record('token_generated', executionId, stepName, null, { step_name: stepName });
   }
@@ -168,87 +93,46 @@ export class TelemetryService {
     });
   }
 
-  /**
-   * Record artifact events
-   */
   artifactStored(executionId: string, stepName: string, artifactId: string): void {
     this.record('artifact_stored', executionId, stepName, null, { artifact_id: artifactId });
   }
 
-  /**
-   * Record errors
-   */
   error(executionId: string | null, context: string, error: string): void {
     this.record('error', executionId, null, null, { context, error });
   }
 }
 
-// ============================================================================
-// MCP Response Builders
-// ============================================================================
-
-/**
- * Build a standardized MCP tool error response
- */
 export function buildToolError(error: string): {
   content: Array<{ type: 'text'; text: string }>;
   isError: true;
 } {
   return {
-    content: [
-      {
-        type: 'text',
-        text: JSON.stringify({ success: false, error }),
-      },
-    ],
+    content: [{ type: 'text', text: JSON.stringify({ success: false, error }) }],
     isError: true,
   };
 }
 
-/**
- * Build a standardized MCP tool success response
- */
 export function buildToolSuccess<T extends Record<string, unknown>>(data: T): {
   content: Array<{ type: 'text'; text: string }>;
 } {
   return {
-    content: [
-      {
-        type: 'text',
-        text: JSON.stringify(data, null, 2),
-      },
-    ],
+    content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
   };
 }
 
-/**
- * Build a standardized MCP resource error response
- */
 export function buildResourceError(uri: string, error: string): {
   uri: string;
   mimeType: string;
   text: string;
   isError: true;
 } {
-  return {
-    uri,
-    mimeType: 'application/json',
-    text: JSON.stringify({ error }),
-    isError: true,
-  };
+  return { uri, mimeType: 'application/json', text: JSON.stringify({ error }), isError: true };
 }
 
-/**
- * Build a standardized MCP resource success response
- */
 export function buildResourceSuccess<T>(uri: string, data: T): {
   uri: string;
   mimeType: string;
   text: string;
 } {
-  return {
-    uri,
-    mimeType: 'application/json',
-    text: JSON.stringify(data, null, 2),
-  };
+  return { uri, mimeType: 'application/json', text: JSON.stringify(data, null, 2) };
 }

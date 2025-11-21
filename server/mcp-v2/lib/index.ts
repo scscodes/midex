@@ -1,10 +1,3 @@
-/**
- * MCP v2 Library Exports
- *
- * Centralized exports for shared utilities, schemas, and services.
- */
-
-// Utilities
 export {
   safeJsonParse,
   decodeTokenPayload,
@@ -15,18 +8,14 @@ export {
   buildResourceSuccess,
 } from './utils.js';
 
-// Schemas and transformers
 export {
-  // Row schemas
   WorkflowExecutionRowSchema,
   WorkflowStepRowSchema,
   WorkflowArtifactRowSchema,
   TelemetryEventRowSchema,
   WorkflowDefinitionRowSchema,
   AgentRowSchema,
-  // Tool input schemas
   StartWorkflowArgsSchema,
-  // Row transformers
   transformExecutionRow,
   transformStepRow,
   transformArtifactRow,
@@ -34,7 +23,6 @@ export {
   transformWorkflowRow,
   safeParseRow,
   safeTransformRow,
-  // Types
   type WorkflowExecutionRow,
   type WorkflowStepRow,
   type WorkflowArtifactRow,
