@@ -29,15 +29,15 @@ server/
 ### Feature Layer
 
 **MCP Server** (`server/mcp/`)
-- Model Context Protocol server with 23 tools across 4 categories
-- Content provider, lifecycle, logging, query tools
-- Deep integration with database and resource pipeline
+- Resources-first architecture: 7 resources (READ), 2 tools (WRITE)
+- Token-based workflow continuation
+- Database-driven state (no in-memory state)
+- See [MCP Architecture](./docs/mcp-architecture.md)
 
-**Workflow Orchestrator** (`server/mcp/core/orchestrator/`)
-- 4-layer execution model: Orchestrator → Workflow → Step → Agent Task
-- Policy-driven execution using workflow complexity-based policies
-- Contract validation at each layer boundary
-- State machine: `pending` → `running` → `completed/failed/escalated`
+**Workflow State Machine**
+- 7-state lifecycle: `idle` → `running` → `completed/failed/paused/abandoned/diverged`
+- Transactional step execution with telemetry
+- Agent persona delivery via resources
 
 ## Quick Start
 
