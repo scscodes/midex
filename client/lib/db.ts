@@ -10,7 +10,8 @@ import type {
 } from './types';
 
 // Use MIDE_DB_PATH to match server, fallback to shared/database/app.db
-const DB_PATH = process.env.MIDE_DB_PATH || path.join(process.cwd(), '..', 'shared', 'database', 'app.db');
+// Note: process.cwd() returns workspace root (/home/user/midex) during Next.js dev
+const DB_PATH = process.env.MIDE_DB_PATH || path.join(process.cwd(), 'shared', 'database', 'app.db');
 
 let dbInstance: Database.Database | null = null;
 
