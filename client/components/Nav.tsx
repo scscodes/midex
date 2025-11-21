@@ -7,6 +7,10 @@ const links = [
   { href: '/', label: 'Dashboard' },
   { href: '/telemetry', label: 'Events' },
   { href: '/executions', label: 'Executions' },
+  { href: '/workflows', label: 'Workflows' },
+  { href: '/efficiency', label: 'Efficiency' },
+  { href: '/savings', label: 'Savings' },
+  { href: '/security', label: 'Security' },
 ];
 
 export function Nav() {
