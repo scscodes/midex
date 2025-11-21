@@ -1,41 +1,36 @@
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
+@import "tailwindcss";
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
+.stat-card {
+  @apply bg-zinc-900 border border-zinc-800 rounded-lg p-4;
+}
+
+.badge {
+  @apply px-2 py-0.5 rounded text-xs font-medium;
+}
+
+.badge-running { @apply bg-blue-500/20 text-blue-400; }
+.badge-completed { @apply bg-green-500/20 text-green-400; }
+.badge-failed { @apply bg-red-500/20 text-red-400; }
+.badge-pending { @apply bg-yellow-500/20 text-yellow-400; }
+.badge-idle { @apply bg-zinc-500/20 text-zinc-400; }
+
+.event-workflow_started { @apply border-l-blue-500; }
+.event-workflow_completed { @apply border-l-green-500; }
+.event-workflow_failed { @apply border-l-red-500; }
+.event-step_started { @apply border-l-cyan-500; }
+.event-step_completed { @apply border-l-emerald-500; }
+.event-step_failed { @apply border-l-rose-500; }
+.event-token_generated { @apply border-l-purple-500; }
+.event-token_validated { @apply border-l-violet-500; }
+.event-error { @apply border-l-red-600; }
