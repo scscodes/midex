@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Nav } from '@/components/Nav';
 import { formatDuration } from '@/lib/utils';
 import type { WorkflowEfficiency } from '@/lib/types';
 
@@ -44,9 +43,7 @@ export default function EfficiencyPage() {
   );
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white">
-      <Nav />
-      <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="space-y-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Workflow Efficiency</h1>
           <div className="flex items-center gap-2">
@@ -128,7 +125,6 @@ export default function EfficiencyPage() {
             </div>
           </>
         )}
-      </div>
-    </main>
+    </div>
   );
 }

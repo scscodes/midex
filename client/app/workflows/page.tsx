@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Nav } from '@/components/Nav';
 import { parsePhases, parseTags, getComplexityColor } from '@/lib/utils';
 import type { WorkflowRow, ParsedPhase } from '@/lib/types';
 
@@ -27,9 +26,7 @@ export default function WorkflowsPage() {
   const selected = workflows.find(w => w.name === selectedWorkflow);
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white">
-      <Nav />
-      <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="space-y-6">
         <h1 className="text-2xl font-bold mb-6">Workflow Catalog</h1>
 
         {loading ? (
@@ -116,7 +113,6 @@ export default function WorkflowsPage() {
             </div>
           </div>
         )}
-      </div>
-    </main>
+    </div>
   );
 }

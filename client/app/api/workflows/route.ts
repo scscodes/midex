@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getWorkflows } from '@/lib/db';
 
+// Cache for 60 seconds - workflow catalog rarely changes
+export const revalidate = 60;
+
 export async function GET() {
   try {
     const workflows = getWorkflows();
 
     // Parse JSON fields
-    const parsed = workflows.map((w: any) => ({
+    const parsed = workflows.map((w) => ({
       ...w,
       tags: w.tags ? JSON.parse(w.tags) : [],
       phases: w.phases ? JSON.parse(w.phases) : [],

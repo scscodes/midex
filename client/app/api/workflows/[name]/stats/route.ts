@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getWorkflowStats } from '@/lib/db';
 
+// Cache for 20 seconds - workflow execution statistics
+export const revalidate = 20;
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ name: string }> }

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Nav } from '@/components/Nav';
 import type { SecurityData, SecretInfo } from '@/lib/types';
 
 export default function SecurityPage() {
@@ -29,9 +28,7 @@ export default function SecurityPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white">
-      <Nav />
-      <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="space-y-6">
         <h1 className="text-2xl font-bold mb-6">Security & Compliance</h1>
 
         {loading ? (
@@ -199,7 +196,6 @@ export default function SecurityPage() {
             </div>
           </>
         )}
-      </div>
-    </main>
+    </div>
   );
 }

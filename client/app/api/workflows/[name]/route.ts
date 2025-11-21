@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getWorkflow } from '@/lib/db';
 
+// Cache for 60 seconds - workflow definitions rarely change
+export const revalidate = 60;
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ name: string }> }

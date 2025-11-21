@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getAggregateStats } from '@/lib/db';
 import type { SecurityData, SecretInfo, AccessLog } from '@/lib/types';
 
+// Cache for 30 seconds - security audit data
+export const revalidate = 30;
+
 const SEVEN_DAYS_MS = 7 * 86400000;
 
 function generateMockSecrets(count: number): SecretInfo[] {
