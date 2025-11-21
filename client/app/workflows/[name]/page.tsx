@@ -3,28 +3,12 @@
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { Nav } from '@/components/Nav';
-
-interface WorkflowDetail {
-  name: string;
-  description: string;
-  tags: string;
-  complexity: string;
-  phases: string;
-  definition: string;
-}
-
-interface ExecutionSummary {
-  total: number;
-  completed: number;
-  failed: number;
-  avgDuration: number;
-  manualEquivalent: number;
-}
+import type { WorkflowRow, WorkflowStats, ParsedPhase } from '@/lib/types';
 
 export default function WorkflowDetailPage({ params }: { params: Promise<{ name: string }> }) {
   const { name } = use(params);
-  const [workflow, setWorkflow] = useState<WorkflowDetail | null>(null);
-  const [stats, setStats] = useState<ExecutionSummary | null>(null);
+  const [workflow, setWorkflow] = useState<WorkflowRow | null>(null);
+  const [stats, setStats] = useState<WorkflowStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,7 +24,7 @@ export default function WorkflowDetailPage({ params }: { params: Promise<{ name:
       .catch(() => setLoading(false));
   }, [name]);
 
-  const parsePhases = (phasesJson: string) => {
+  const parsePhases = (phasesJson: string): ParsedPhase[] => {
     try {
       return JSON.parse(phasesJson) || [];
     } catch {
@@ -135,7 +119,7 @@ export default function WorkflowDetailPage({ params }: { params: Promise<{ name:
             <div className="bg-gray-900 border border-gray-700 rounded-lg p-6">
               <h2 className="text-lg font-semibold mb-4">Workflow Phases</h2>
               <div className="space-y-4">
-                {parsePhases(workflow.phases).map((phase: { name: string; agent: string; steps?: string[] }, idx: number) => (
+                {parsePhases(workflow.phases).map((phase, idx) => (
                   <div key={idx} className="border-l-2 border-blue-500 pl-4">
                     <div className="flex items-center gap-3 mb-2">
                       <span className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs font-bold">

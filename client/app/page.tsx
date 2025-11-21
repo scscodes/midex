@@ -3,13 +3,7 @@
 import { useEffect, useState } from 'react';
 import { StatCard } from '@/components/StatCard';
 import { EventList } from '@/components/EventList';
-
-interface Stats {
-  activeWorkflows: number;
-  completedLast24h: number;
-  failedWorkflows: number;
-  eventsLastHour: number;
-}
+import type { Stats } from '@/lib/types';
 
 export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null);

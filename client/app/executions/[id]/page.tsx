@@ -4,30 +4,12 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { EventList } from '@/components/EventList';
-
-interface Step {
-  id: number;
-  step_name: string;
-  agent_name: string;
-  status: string;
-  started_at: string | null;
-  completed_at: string | null;
-  duration_ms: number | null;
-  output: string | null;
-}
+import type { ExecutionRow, ExecutionStepRow, TelemetryEventRow } from '@/lib/types';
 
 interface ExecutionDetail {
-  execution: {
-    execution_id: string;
-    workflow_name: string;
-    state: string;
-    current_step: string | null;
-    started_at: string;
-    completed_at: string | null;
-    duration_ms: number | null;
-  };
-  steps: Step[];
-  events: any[];
+  execution: ExecutionRow;
+  steps: ExecutionStepRow[];
+  events: TelemetryEventRow[];
 }
 
 export default function ExecutionDetailPage() {

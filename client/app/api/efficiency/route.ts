@@ -1,13 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getWorkflows, getWorkflowStats } from '@/lib/db';
-
-interface WorkflowRow {
-  name: string;
-  description: string;
-}
+import type { WorkflowRow } from '@/lib/types';
 
 export async function GET() {
-  const workflows = getWorkflows() as WorkflowRow[];
+  const workflows = getWorkflows();
 
   const efficiency = workflows.map(w => {
     const stats = getWorkflowStats(w.name);

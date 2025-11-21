@@ -2,21 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import type { ExecutionRow, ExecutionState } from '@/lib/types';
 
-interface Execution {
-  execution_id: string;
-  workflow_name: string;
-  state: string;
-  current_step: string | null;
-  started_at: string;
-  completed_at: string | null;
-  duration_ms: number | null;
-}
-
-const STATES = ['all', 'running', 'completed', 'failed', 'idle', 'paused'];
+const STATES: Array<'all' | ExecutionState> = ['all', 'running', 'completed', 'failed', 'idle', 'paused', 'abandoned', 'diverged'];
 
 export default function ExecutionsPage() {
-  const [executions, setExecutions] = useState<Execution[]>([]);
+  const [executions, setExecutions] = useState<ExecutionRow[]>([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
 

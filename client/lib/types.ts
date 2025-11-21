@@ -1,35 +1,45 @@
 // Shared types for client application
 
+// Valid workflow execution states (from DB CHECK constraint)
+export type ExecutionState = 'idle' | 'running' | 'paused' | 'completed' | 'failed' | 'abandoned' | 'diverged';
+
+// Valid step statuses (from DB CHECK constraint)
+export type StepStatus = 'pending' | 'running' | 'completed' | 'failed';
+
 // Database row types (as returned from SQLite)
 export interface TelemetryEventRow {
   id: number;
-  execution_id: string;
   event_type: string;
+  execution_id: string | null;
   step_name: string | null;
+  agent_name: string | null;
   metadata: string | null;
   created_at: string;
 }
 
 export interface ExecutionRow {
-  id: number;
   execution_id: string;
   workflow_name: string;
-  state: 'pending' | 'running' | 'completed' | 'failed';
+  state: ExecutionState;
   current_step: string | null;
   started_at: string;
+  updated_at: string;
   completed_at: string | null;
-  error: string | null;
+  duration_ms: number | null;
+  metadata: string | null;
 }
 
 export interface ExecutionStepRow {
   id: number;
   execution_id: string;
   step_name: string;
-  agent: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
-  output: string | null;
+  agent_name: string;
+  status: StepStatus;
   started_at: string | null;
   completed_at: string | null;
+  duration_ms: number | null;
+  output: string | null;
+  token: string | null;
 }
 
 export interface WorkflowRow {
