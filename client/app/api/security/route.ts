@@ -35,22 +35,30 @@ function countExpiringSoon(secrets: SecretInfo[]): number {
 }
 
 export async function GET() {
-  const stats = getAggregateStats();
-  const projectCount = Math.max(2, Math.floor(stats.executions / 10));
+  try {
+    const stats = getAggregateStats();
+    const projectCount = Math.max(2, Math.floor(stats.executions / 10));
 
-  const secrets = generateMockSecrets(projectCount * 2);
-  const accessLogs = generateMockAccessLogs(Math.min(stats.executions, 10));
+    const secrets = generateMockSecrets(projectCount * 2);
+    const accessLogs = generateMockAccessLogs(Math.min(stats.executions, 10));
 
-  const data: SecurityData = {
-    secrets,
-    accessLogs,
-    stats: {
-      totalSecrets: secrets.length,
-      expiringIn7Days: countExpiringSoon(secrets),
-      accessesLast24h: accessLogs.length,
-      leakIncidents: 0,
-    },
-  };
+    const data: SecurityData = {
+      secrets,
+      accessLogs,
+      stats: {
+        totalSecrets: secrets.length,
+        expiringIn7Days: countExpiringSoon(secrets),
+        accessesLast24h: accessLogs.length,
+        leakIncidents: 0,
+      },
+    };
 
-  return NextResponse.json(data);
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Failed to fetch security data:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch security data' },
+      { status: 500 }
+    );
+  }
 }

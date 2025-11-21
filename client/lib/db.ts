@@ -9,7 +9,8 @@ import type {
   WorkflowStats,
 } from './types';
 
-const DB_PATH = process.env.MIDEX_DB_PATH || path.join(process.cwd(), '..', 'shared', 'database', 'app.db');
+// Use MIDE_DB_PATH to match server, fallback to shared/database/app.db
+const DB_PATH = process.env.MIDE_DB_PATH || path.join(process.cwd(), '..', 'shared', 'database', 'app.db');
 
 let dbInstance: Database.Database | null = null;
 
@@ -104,16 +105,15 @@ export function getWorkflowStats(workflowName: string): WorkflowStats {
     WHERE workflow_name = ?
   `).get(workflowName) as { total: number; completed: number; failed: number; avg_seconds: number | null };
 
-  const workflow = getDb()
-    .prepare('SELECT manual_equivalent_minutes FROM workflows WHERE name = ?')
-    .get(workflowName) as { manual_equivalent_minutes?: number } | undefined;
+  // Default manual equivalent: 60 minutes (configurable via workflow content frontmatter in future)
+  const DEFAULT_MANUAL_MINUTES = 60;
 
   return {
     total: result.total,
     completed: result.completed ?? 0,
     failed: result.failed ?? 0,
     avgDuration: result.avg_seconds ?? 0,
-    manualEquivalent: workflow?.manual_equivalent_minutes ?? 60,
+    manualEquivalent: DEFAULT_MANUAL_MINUTES,
   };
 }
 

@@ -3,7 +3,8 @@
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { Nav } from '@/components/Nav';
-import type { WorkflowRow, WorkflowStats, ParsedPhase } from '@/lib/types';
+import type { WorkflowRow, WorkflowStats } from '@/lib/types';
+import { parsePhases, formatDuration } from '@/lib/utils';
 
 export default function WorkflowDetailPage({ params }: { params: Promise<{ name: string }> }) {
   const { name } = use(params);
@@ -23,20 +24,6 @@ export default function WorkflowDetailPage({ params }: { params: Promise<{ name:
       })
       .catch(() => setLoading(false));
   }, [name]);
-
-  const parsePhases = (phasesJson: string): ParsedPhase[] => {
-    try {
-      return JSON.parse(phasesJson) || [];
-    } catch {
-      return [];
-    }
-  };
-
-  const formatDuration = (seconds: number) => {
-    if (seconds < 60) return `${Math.round(seconds)}s`;
-    if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
-    return `${(seconds / 3600).toFixed(1)}h`;
-  };
 
   const calculateSavings = () => {
     if (!stats || stats.total === 0) return null;

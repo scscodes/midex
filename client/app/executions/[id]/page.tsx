@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { EventList } from '@/components/EventList';
 import type { ExecutionRow, ExecutionStepRow, TelemetryEventRow } from '@/lib/types';
+import { formatDurationMs, safeParseJSON } from '@/lib/utils';
 
 interface ExecutionDetail {
   execution: ExecutionRow;
@@ -38,22 +39,6 @@ export default function ExecutionDetailPage() {
     return () => clearInterval(interval);
   }, [id]);
 
-  const formatDuration = (ms: number | null) => {
-    if (!ms) return '-';
-    if (ms < 1000) return `${ms}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-    return `${(ms / 60000).toFixed(1)}m`;
-  };
-
-  const parseOutput = (output: string | null) => {
-    if (!output) return null;
-    try {
-      return JSON.parse(output);
-    } catch {
-      return null;
-    }
-  };
-
   if (loading) {
     return <div className="text-zinc-500">Loading...</div>;
   }
@@ -85,7 +70,7 @@ export default function ExecutionDetailPage() {
         </div>
         <div className="stat-card">
           <p className="text-zinc-400 text-sm">Duration</p>
-          <p className="text-xl font-bold mt-1">{formatDuration(execution.duration_ms)}</p>
+          <p className="text-xl font-bold mt-1">{formatDurationMs(execution.duration_ms)}</p>
         </div>
         <div className="stat-card">
           <p className="text-zinc-400 text-sm">Steps</p>
@@ -111,7 +96,7 @@ export default function ExecutionDetailPage() {
                   <span className="text-zinc-500 text-sm">{step.agent_name}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-zinc-400 text-sm">{formatDuration(step.duration_ms)}</span>
+                  <span className="text-zinc-400 text-sm">{formatDurationMs(step.duration_ms)}</span>
                   <span className={`badge badge-${step.status}`}>{step.status}</span>
                 </div>
               </div>
@@ -119,7 +104,7 @@ export default function ExecutionDetailPage() {
                 <div className="mt-3 pt-3 border-t border-zinc-800">
                   <p className="text-zinc-400 text-sm mb-2">Output:</p>
                   <pre className="text-xs bg-zinc-950 p-2 rounded overflow-x-auto text-zinc-400">
-                    {JSON.stringify(parseOutput(step.output), null, 2)}
+                    {JSON.stringify(safeParseJSON(step.output, null), null, 2)}
                   </pre>
                 </div>
               )}

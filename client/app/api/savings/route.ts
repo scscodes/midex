@@ -24,25 +24,33 @@ function generateMockDriftEvents(count: number): DriftEvent[] {
 }
 
 export async function GET() {
-  const stats = getAggregateStats();
+  try {
+    const stats = getAggregateStats();
 
-  const filesManaged = stats.workflows * 3;
-  const projectsManaged = Math.max(1, Math.floor(stats.workflows / 2));
-  const syncEvents = stats.completed * 2;
-  const driftPrevented = Math.floor(syncEvents * 0.1);
-  const hoursSaved = (stats.completed * 30) / 60;
+    const filesManaged = stats.workflows * 3;
+    const projectsManaged = Math.max(1, Math.floor(stats.workflows / 2));
+    const syncEvents = stats.completed * 2;
+    const driftPrevented = Math.floor(syncEvents * 0.1);
+    const hoursSaved = (stats.completed * 30) / 60;
 
-  const data: SavingsData = {
-    filesManaged,
-    projectsManaged,
-    syncEvents,
-    driftPrevented,
-    secretsProtected: Math.ceil(projectsManaged * 1.5),
-    hoursSaved,
-    lastSync: new Date().toISOString(),
-    driftEvents: generateMockDriftEvents(driftPrevented),
-    projectSyncStatus: generateMockProjectSync(projectsManaged),
-  };
+    const data: SavingsData = {
+      filesManaged,
+      projectsManaged,
+      syncEvents,
+      driftPrevented,
+      secretsProtected: Math.ceil(projectsManaged * 1.5),
+      hoursSaved,
+      lastSync: new Date().toISOString(),
+      driftEvents: generateMockDriftEvents(driftPrevented),
+      projectSyncStatus: generateMockProjectSync(projectsManaged),
+    };
 
-  return NextResponse.json(data);
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Failed to fetch savings data:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch savings data' },
+      { status: 500 }
+    );
+  }
 }

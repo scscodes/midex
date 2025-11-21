@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { ExecutionRow, ExecutionState } from '@/lib/types';
+import { formatDurationMs } from '@/lib/utils';
 
 const STATES: Array<'all' | ExecutionState> = ['all', 'running', 'completed', 'failed', 'idle', 'paused', 'abandoned', 'diverged'];
 
@@ -34,13 +35,6 @@ export default function ExecutionsPage() {
     const interval = setInterval(fetchExecutions, 5000);
     return () => clearInterval(interval);
   }, [filter]);
-
-  const formatDuration = (ms: number | null) => {
-    if (!ms) return '-';
-    if (ms < 1000) return `${ms}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-    return `${(ms / 60000).toFixed(1)}m`;
-  };
 
   const formatTime = (iso: string) => {
     return new Date(iso).toLocaleString();
@@ -92,7 +86,7 @@ export default function ExecutionsPage() {
                   </td>
                   <td className="px-4 py-2 text-zinc-400">{exec.current_step || '-'}</td>
                   <td className="px-4 py-2 text-zinc-400">{formatTime(exec.started_at)}</td>
-                  <td className="px-4 py-2 text-zinc-400">{formatDuration(exec.duration_ms)}</td>
+                  <td className="px-4 py-2 text-zinc-400">{formatDurationMs(exec.duration_ms)}</td>
                 </tr>
               ))}
               {executions.length === 0 && (
