@@ -24,8 +24,17 @@ export class TokenService {
 
   /**
    * Generate a new token for a workflow step
+   * @throws Error if inputs are invalid
    */
   generateToken(executionId: string, stepName: string): string {
+    // Input validation
+    if (!executionId || typeof executionId !== 'string' || executionId.trim().length === 0) {
+      throw new Error('execution_id must be a non-empty string');
+    }
+    if (!stepName || typeof stepName !== 'string' || stepName.trim().length === 0) {
+      throw new Error('step_name must be a non-empty string');
+    }
+
     const payload: TokenPayload = {
       execution_id: executionId,
       step_name: stepName,
@@ -49,6 +58,14 @@ export class TokenService {
    * Validate a token and extract payload
    */
   validateToken(token: string): TokenValidation {
+    // Input validation
+    if (!token || typeof token !== 'string' || token.trim().length === 0) {
+      return {
+        valid: false,
+        error: 'Token must be a non-empty string',
+      };
+    }
+
     try {
       // Decode base64url
       const base64 = this.base64urlToBase64(token);

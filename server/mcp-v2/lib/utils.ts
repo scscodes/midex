@@ -8,7 +8,8 @@
  */
 
 import type { Database } from 'better-sqlite3';
-import type { TelemetryEventType } from '../types/index.js';
+import type { TelemetryEventType, TokenPayload } from '../types/index.js';
+import { TokenPayloadSchema } from '../types/index.js';
 
 // ============================================================================
 // JSON Utilities
@@ -26,6 +27,35 @@ export function safeJsonParse<T>(json: string | null | undefined, fallback: T): 
     return JSON.parse(json);
   } catch {
     return fallback;
+  }
+}
+
+// ============================================================================
+// Token Utilities
+// ============================================================================
+
+/**
+ * Decode a base64url token and extract payload without full validation
+ * Use this for quick lookups where full validation will happen later
+ * @param token - Base64url encoded token
+ * @returns Decoded payload or null if decode fails
+ */
+export function decodeTokenPayload(token: string): TokenPayload | null {
+  try {
+    // Convert base64url to base64
+    let base64 = token.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4 !== 0) {
+      base64 += '=';
+    }
+
+    const json = Buffer.from(base64, 'base64').toString('utf-8');
+    const payload = JSON.parse(json);
+
+    // Validate schema
+    const result = TokenPayloadSchema.safeParse(payload);
+    return result.success ? result.data : null;
+  } catch {
+    return null;
   }
 }
 

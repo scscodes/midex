@@ -12,12 +12,11 @@ import type { Database } from 'better-sqlite3';
 import type { NextStepResult, WorkflowPhase } from '../types/index.js';
 import { NextStepArgsSchema } from '../types/index.js';
 import { StepExecutor } from '../core/step-executor.js';
-import { TokenService } from '../core/token-service.js';
 import {
   safeJsonParse,
+  decodeTokenPayload,
   buildToolError,
   buildToolSuccess,
-  StartWorkflowArgsSchema,
   AgentRowSchema,
   safeParseRow,
 } from '../lib/index.js';
@@ -32,11 +31,9 @@ export interface ToolResult {
 
 export class ToolHandlers {
   private stepExecutor: StepExecutor;
-  private tokenService: TokenService;
 
   constructor(private db: Database) {
     this.stepExecutor = new StepExecutor(db);
-    this.tokenService = new TokenService();
   }
 
   // ============================================================================
@@ -75,13 +72,13 @@ export class ToolHandlers {
 
     const { token, output } = parsed.data;
 
-    // Validate token to get execution_id
-    const validation = this.tokenService.validateToken(token);
-    if (!validation.valid) {
-      return buildToolError(validation.error);
+    // Decode token to get execution_id (full validation happens in stepExecutor)
+    const payload = decodeTokenPayload(token);
+    if (!payload) {
+      return buildToolError('Invalid or malformed token');
     }
 
-    const { execution_id } = validation.payload;
+    const { execution_id } = payload;
 
     // Get workflow name
     const execution = this.db
@@ -188,15 +185,8 @@ export class ToolHandlers {
    * - error?: string
    */
   async startWorkflow(workflowName: string, executionId: string): Promise<ToolResult> {
-    // Validate inputs with Zod schema
-    const validation = StartWorkflowArgsSchema.safeParse({
-      workflow_name: workflowName,
-      execution_id: executionId,
-    });
-
-    if (!validation.success) {
-      return buildToolError(`Invalid arguments: ${validation.error.message}`);
-    }
+    // Note: Input validation happens in server.ts before calling this method
+    // workflowName and executionId are already validated strings
 
     // Get workflow phases
     const workflow = this.db
@@ -218,15 +208,12 @@ export class ToolHandlers {
       return buildToolError(`Workflow '${workflowName}' has no phases defined`);
     }
 
-    // Start workflow
-    const result = this.stepExecutor.startWorkflow(workflowName, executionId, phases);
-
-    if (!result.success) {
-      return buildToolError(result.error || 'Failed to start workflow');
+    // Validate agent exists BEFORE starting workflow to avoid orphaned state
+    const firstPhase = phases.find((p) => !p.dependsOn || p.dependsOn.length === 0);
+    if (!firstPhase) {
+      return buildToolError(`Workflow '${workflowName}' has no starting phase (missing phase with no dependencies)`);
     }
 
-    // Get agent content for first step
-    // Fix #3: Agent not found should fail workflow
     const agentRow = this.db
       .prepare(
         `
@@ -234,15 +221,22 @@ export class ToolHandlers {
         WHERE name = ?
       `
       )
-      .get(result.agent_name);
+      .get(firstPhase.agent);
 
     const agent = safeParseRow(AgentRowSchema, agentRow);
     if (!agent) {
       return buildToolError(
-        `Agent '${result.agent_name}' not found in content registry. ` +
+        `Agent '${firstPhase.agent}' not found in content registry. ` +
           `The workflow cannot start without a valid agent persona for the first step. ` +
           `Please ensure the agent exists in the agents table.`
       );
+    }
+
+    // Start workflow (agent validated, safe to proceed)
+    const result = this.stepExecutor.startWorkflow(workflowName, executionId, phases);
+
+    if (!result.success) {
+      return buildToolError(result.error || 'Failed to start workflow');
     }
 
     const response = {
@@ -250,7 +244,7 @@ export class ToolHandlers {
       execution_id: result.execution_id,
       step_name: result.step_name,
       agent_name: result.agent_name,
-      agent_content: agent.content,
+      agent_content: agent.content, // Already validated above
       workflow_state: result.workflow_state,
       new_token: result.new_token,
       message: `Workflow '${workflowName}' started. Step '${result.step_name}' ready.`,

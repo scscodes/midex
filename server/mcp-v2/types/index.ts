@@ -136,26 +136,28 @@ export type WorkflowArtifact = z.infer<typeof WorkflowArtifactSchema>;
 // ============================================================================
 
 /**
- * Telemetry event types
+ * Telemetry event types (Zod schema for validation)
  */
-export type TelemetryEventType =
-  | 'workflow_created'
-  | 'workflow_started'
-  | 'workflow_completed'
-  | 'workflow_failed'
-  | 'workflow_state_transition'
-  | 'step_started'
-  | 'step_completed'
-  | 'step_failed'
-  | 'token_generated'
-  | 'token_validated'
-  | 'token_expired'
-  | 'artifact_stored'
-  | 'error';
+export const TelemetryEventTypeSchema = z.enum([
+  'workflow_created',
+  'workflow_started',
+  'workflow_completed',
+  'workflow_failed',
+  'workflow_state_transition',
+  'step_started',
+  'step_completed',
+  'step_failed',
+  'token_generated',
+  'token_validated',
+  'token_expired',
+  'artifact_stored',
+  'error',
+]);
+export type TelemetryEventType = z.infer<typeof TelemetryEventTypeSchema>;
 
 export const TelemetryEventSchema = z.object({
   id: z.number().int(),
-  event_type: z.string(),
+  event_type: TelemetryEventTypeSchema,
   execution_id: z.string().nullable(),
   step_name: z.string().nullable(),
   agent_name: z.string().nullable(),

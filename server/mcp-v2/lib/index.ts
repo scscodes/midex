@@ -7,6 +7,7 @@
 // Utilities
 export {
   safeJsonParse,
+  decodeTokenPayload,
   TelemetryService,
   buildToolError,
   buildToolSuccess,

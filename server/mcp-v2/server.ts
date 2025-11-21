@@ -26,7 +26,7 @@ import { initDatabase } from '../database/index.js';
 import { getDatabasePath } from '../shared/config.js';
 import { ResourceHandlers } from './resources/index.js';
 import { ToolHandlers } from './tools/index.js';
-import { StartWorkflowArgsSchema, buildResourceError } from './lib/index.js';
+import { StartWorkflowArgsSchema, buildResourceError, buildToolError } from './lib/index.js';
 
 /**
  * MCP Server configuration
@@ -306,18 +306,7 @@ async function main() {
           // Validate args with Zod schema
           const validation = StartWorkflowArgsSchema.safeParse(args);
           if (!validation.success) {
-            return {
-              content: [
-                {
-                  type: 'text' as const,
-                  text: JSON.stringify({
-                    success: false,
-                    error: `Invalid arguments: ${validation.error.message}`,
-                  }),
-                },
-              ],
-              isError: true,
-            };
+            return buildToolError(`Invalid arguments: ${validation.error.message}`);
           }
 
           const { workflow_name, execution_id } = validation.data;
@@ -332,17 +321,7 @@ async function main() {
 
       return result;
     } catch (error) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              error: error instanceof Error ? error.message : String(error),
-            }),
-          },
-        ],
-        isError: true,
-      };
+      return buildToolError(error instanceof Error ? error.message : String(error));
     }
   });
 
