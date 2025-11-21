@@ -767,48 +767,562 @@ async function continueWorkflow(args, stateMachine, stepExecutor, tokenService) 
 
 ---
 
-## Database Schema (Minimal)
+## Database Architecture (CRITICAL CORE COMPONENT)
 
-### Required Tables
+**Role:** The database is the **single source of truth** for:
+1. Workflow state and lifecycle
+2. Step execution history and outputs
+3. Artifact storage and retrieval
+4. Telemetry and metrics collection
+5. Web client queries and dashboards
+
+**ALL operations** flow through database. No in-memory state (prevents data loss on crash).
+
+### Database Schema
 
 ```sql
--- Workflow Executions
+-- ============================================================================
+-- WORKFLOW EXECUTIONS (Primary state table)
+-- ============================================================================
 CREATE TABLE workflow_executions (
   execution_id TEXT PRIMARY KEY,
   workflow_name TEXT NOT NULL,
-  state TEXT NOT NULL,  -- idle|running|paused|completed|failed|abandoned|diverged
-  current_step TEXT,
+  state TEXT NOT NULL,              -- idle|running|paused|completed|failed|abandoned|diverged
+  current_step TEXT,                -- Current step name (for quick status)
   started_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   completed_at TEXT,
-  metadata TEXT  -- JSON for extensibility
+  duration_ms INTEGER,               -- Total duration when completed
+  metadata TEXT,                     -- JSON: { user_id, project_id, custom_data }
+
+  -- Indexes for web client queries
+  INDEX idx_executions_state (state),
+  INDEX idx_executions_workflow (workflow_name),
+  INDEX idx_executions_started (started_at)
 );
 
--- Workflow Steps
+-- ============================================================================
+-- WORKFLOW STEPS (Step-level tracking)
+-- ============================================================================
 CREATE TABLE workflow_steps (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   execution_id TEXT NOT NULL,
   step_name TEXT NOT NULL,
   agent_name TEXT NOT NULL,
-  status TEXT NOT NULL,  -- pending|running|completed|failed
+  status TEXT NOT NULL,             -- pending|running|completed|failed
   started_at TEXT,
   completed_at TEXT,
-  output TEXT,  -- JSON: StepOutput
-  FOREIGN KEY (execution_id) REFERENCES workflow_executions(execution_id)
+  duration_ms INTEGER,               -- Step duration
+  output TEXT,                       -- JSON: StepOutput (summary, artifacts, references, confidence)
+  token TEXT,                        -- Current step token (for validation)
+
+  FOREIGN KEY (execution_id) REFERENCES workflow_executions(execution_id),
+
+  -- Indexes for performance
+  INDEX idx_steps_execution (execution_id),
+  INDEX idx_steps_status (status)
 );
 
--- Workflow Artifacts (reuse existing)
--- Already exists in server/database/migrations/002_add_tool_configs.ts
--- Just needs is_final column if not present
+-- ============================================================================
+-- WORKFLOW ARTIFACTS (Already exists, enhance)
+-- ============================================================================
+-- Existing table from 002_add_tool_configs.ts
+-- Add is_final column if not present:
+ALTER TABLE workflow_artifacts ADD COLUMN is_final INTEGER DEFAULT 0;
 
--- Projects (reuse existing)
--- Already exists
+CREATE INDEX IF NOT EXISTS idx_artifacts_execution ON workflow_artifacts(execution_id);
+CREATE INDEX IF NOT EXISTS idx_artifacts_final ON workflow_artifacts(is_final);
+CREATE INDEX IF NOT EXISTS idx_artifacts_type ON workflow_artifacts(artifact_type);
 
--- Agent Tasks (optional, for compatibility)
--- Can be added later if needed
+-- ============================================================================
+-- TELEMETRY EVENTS (Metrics and monitoring)
+-- ============================================================================
+CREATE TABLE telemetry_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_type TEXT NOT NULL,         -- See Event Types below
+  execution_id TEXT,                -- NULL for global events
+  step_name TEXT,
+  agent_name TEXT,
+  metadata TEXT,                    -- JSON: event-specific data
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  -- Indexes for analytics queries
+  INDEX idx_telemetry_type (event_type),
+  INDEX idx_telemetry_execution (execution_id),
+  INDEX idx_telemetry_created (created_at)
+);
+
+-- Event Types:
+-- - workflow_created: New workflow started
+-- - workflow_state_transition: State changed (running → paused, etc.)
+-- - step_started: Step execution began
+-- - step_completed: Step finished
+-- - step_failed: Step error
+-- - token_generated: New token issued
+-- - token_validated: Token used successfully
+-- - token_expired: Token validation failed (expiry)
+-- - artifact_stored: Artifact persisted
+-- - error_occurred: Any error
+-- - workflow_abandoned: Auto-detected abandonment
 ```
 
 **Migration:** `server/database/migrations/003_add_workflow_v2.ts`
+
+---
+
+## Database Touch Points (Write Operations)
+
+Every operation that modifies state MUST write to database immediately (no buffering).
+
+### 1. Workflow Creation (`workflow.next_step` with `template_name`)
+
+**Writes:**
+```typescript
+// workflow_executions
+INSERT INTO workflow_executions (
+  execution_id, workflow_name, state, started_at, updated_at
+) VALUES (?, ?, 'running', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+// workflow_steps (first step)
+INSERT INTO workflow_steps (
+  execution_id, step_name, agent_name, status, started_at
+) VALUES (?, ?, ?, 'running', CURRENT_TIMESTAMP);
+
+// telemetry_events
+INSERT INTO telemetry_events (
+  event_type, execution_id, metadata
+) VALUES ('workflow_created', ?, ?);
+
+// telemetry_events (token generated)
+INSERT INTO telemetry_events (
+  event_type, execution_id, step_name, metadata
+) VALUES ('token_generated', ?, ?, ?);
+```
+
+**Touch Points:**
+- `WorkflowStateMachine.createExecution()` → `workflow_executions` INSERT
+- `StepExecutor.startStep()` → `workflow_steps` INSERT
+- `TokenService.generate()` → `telemetry_events` INSERT
+
+---
+
+### 2. Step Continuation (`workflow.next_step` with `step_token`)
+
+**Writes:**
+```typescript
+// 1. Validate token (READ + telemetry)
+SELECT * FROM workflow_steps WHERE execution_id = ? AND step_name = ? AND token = ?;
+
+INSERT INTO telemetry_events (
+  event_type, execution_id, step_name, metadata
+) VALUES ('token_validated', ?, ?, ?);
+
+// 2. Complete previous step
+UPDATE workflow_steps
+SET status = 'completed',
+    completed_at = CURRENT_TIMESTAMP,
+    duration_ms = ?,
+    output = ?
+WHERE execution_id = ? AND step_name = ?;
+
+INSERT INTO telemetry_events (
+  event_type, execution_id, step_name, metadata
+) VALUES ('step_completed', ?, ?, ?);
+
+// 3. Store artifacts (foreach artifact)
+INSERT INTO workflow_artifacts (
+  artifact_id, execution_id, step_name, agent_name,
+  artifact_type, title, content, is_final, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP);
+
+INSERT INTO telemetry_events (
+  event_type, execution_id, step_name, metadata
+) VALUES ('artifact_stored', ?, ?, ?);
+
+// 4. Create next step OR complete workflow
+-- If next step exists:
+INSERT INTO workflow_steps (
+  execution_id, step_name, agent_name, status, started_at, token
+) VALUES (?, ?, ?, 'running', CURRENT_TIMESTAMP, ?);
+
+INSERT INTO telemetry_events (
+  event_type, execution_id, step_name
+) VALUES ('step_started', ?, ?);
+
+-- If no next step (workflow complete):
+UPDATE workflow_executions
+SET state = 'completed',
+    completed_at = CURRENT_TIMESTAMP,
+    duration_ms = ?
+WHERE execution_id = ?;
+
+UPDATE workflow_artifacts SET is_final = 1 WHERE execution_id = ?;
+
+INSERT INTO telemetry_events (
+  event_type, execution_id, metadata
+) VALUES ('workflow_state_transition', ?, '{"from":"running","to":"completed"}');
+```
+
+**Touch Points:**
+- `TokenService.validate()` → `workflow_steps` SELECT + `telemetry_events` INSERT
+- `StepExecutor.completeStep()` → `workflow_steps` UPDATE + `telemetry_events` INSERT
+- `StepExecutor.storeArtifacts()` → `workflow_artifacts` INSERT (multiple) + `telemetry_events` INSERT (multiple)
+- `StepExecutor.startNextStep()` → `workflow_steps` INSERT + `telemetry_events` INSERT
+- `WorkflowStateMachine.transition('completed')` → `workflow_executions` UPDATE + `workflow_artifacts` UPDATE + `telemetry_events` INSERT
+
+---
+
+### 3. State Transitions (pause, resume, abandon, diverge, fail)
+
+**Writes:**
+```typescript
+// All transitions follow same pattern:
+UPDATE workflow_executions
+SET state = ?,
+    updated_at = CURRENT_TIMESTAMP,
+    metadata = json_set(metadata, '$.last_transition_reason', ?)
+WHERE execution_id = ?;
+
+INSERT INTO telemetry_events (
+  event_type, execution_id, metadata
+) VALUES ('workflow_state_transition', ?, ?);
+
+// For terminal states (abandoned, failed, diverged):
+UPDATE workflow_artifacts SET is_final = 0 WHERE execution_id = ?;
+
+UPDATE projects SET active_task_id = NULL WHERE active_task_id = ?;
+```
+
+**Touch Points:**
+- `WorkflowStateMachine.transition()` → `workflow_executions` UPDATE + `telemetry_events` INSERT
+- `WorkflowStateMachine.cleanup()` → `workflow_artifacts` UPDATE + `projects` UPDATE
+
+---
+
+### 4. Error Handling
+
+**Writes:**
+```typescript
+// On any error:
+INSERT INTO telemetry_events (
+  event_type, execution_id, step_name, metadata
+) VALUES ('error_occurred', ?, ?, ?);
+
+// If error is fatal:
+UPDATE workflow_executions
+SET state = 'failed', updated_at = CURRENT_TIMESTAMP
+WHERE execution_id = ?;
+
+INSERT INTO telemetry_events (
+  event_type, execution_id, metadata
+) VALUES ('workflow_state_transition', ?, '{"from":"running","to":"failed"}');
+```
+
+**Touch Points:**
+- All try/catch blocks → `telemetry_events` INSERT
+- `WorkflowStateMachine.transition('failed')` → `workflow_executions` UPDATE
+
+---
+
+## Database Touch Points (Read Operations)
+
+Resources and status queries read from database.
+
+### Resource: `current_step://{execution_id}`
+
+```sql
+SELECT
+  we.execution_id,
+  we.state,
+  we.current_step,
+  ws.step_name,
+  ws.agent_name,
+  ws.status,
+  ws.started_at
+FROM workflow_executions we
+LEFT JOIN workflow_steps ws ON we.execution_id = ws.execution_id AND ws.status = 'running'
+WHERE we.execution_id = ?;
+
+-- Also fetch artifacts for current step:
+SELECT * FROM workflow_artifacts
+WHERE execution_id = ? AND step_name = ?
+ORDER BY created_at DESC;
+```
+
+**Touch Points:**
+- `CurrentStepResource.resolve()` → `workflow_executions` + `workflow_steps` + `workflow_artifacts` SELECT
+
+---
+
+### Resource: `workflow_status://{execution_id}`
+
+```sql
+-- Full execution with all steps:
+SELECT * FROM workflow_executions WHERE execution_id = ?;
+
+SELECT * FROM workflow_steps WHERE execution_id = ? ORDER BY started_at;
+
+SELECT * FROM workflow_artifacts WHERE execution_id = ? ORDER BY created_at;
+```
+
+**Touch Points:**
+- `WorkflowStatusResource.resolve()` → Multiple SELECT queries
+
+---
+
+### Resource: `workflow_artifacts://{pattern}`
+
+```sql
+-- Pattern: recent
+SELECT * FROM workflow_artifacts
+ORDER BY created_at DESC
+LIMIT 50;
+
+-- Pattern: final
+SELECT * FROM workflow_artifacts
+WHERE is_final = 1
+ORDER BY created_at DESC;
+
+-- Pattern: final/{execution_id}
+SELECT * FROM workflow_artifacts
+WHERE execution_id = ? AND is_final = 1
+ORDER BY created_at DESC;
+
+-- Pattern: type/{type}
+SELECT * FROM workflow_artifacts
+WHERE artifact_type = ?
+ORDER BY created_at DESC
+LIMIT 100;
+```
+
+**Touch Points:**
+- `WorkflowArtifactsResource.resolve()` → `workflow_artifacts` SELECT with various filters
+
+---
+
+## Web Client Query Examples
+
+The web client will query the database for analytics dashboards.
+
+### Dashboard 1: Workflow Performance
+
+```sql
+-- Total workflows by state
+SELECT state, COUNT(*) as count
+FROM workflow_executions
+GROUP BY state;
+
+-- Average duration by workflow type
+SELECT
+  workflow_name,
+  AVG(duration_ms) as avg_duration_ms,
+  COUNT(*) as executions
+FROM workflow_executions
+WHERE state = 'completed'
+GROUP BY workflow_name
+ORDER BY avg_duration_ms DESC;
+
+-- Completion rate by workflow
+SELECT
+  workflow_name,
+  COUNT(CASE WHEN state = 'completed' THEN 1 END) * 100.0 / COUNT(*) as completion_rate
+FROM workflow_executions
+GROUP BY workflow_name;
+```
+
+---
+
+### Dashboard 2: Step Performance
+
+```sql
+-- Average step duration
+SELECT
+  step_name,
+  agent_name,
+  AVG(duration_ms) as avg_duration_ms,
+  COUNT(*) as executions
+FROM workflow_steps
+WHERE status = 'completed'
+GROUP BY step_name, agent_name
+ORDER BY avg_duration_ms DESC;
+
+-- Step failure rate
+SELECT
+  step_name,
+  COUNT(CASE WHEN status = 'failed' THEN 1 END) * 100.0 / COUNT(*) as failure_rate
+FROM workflow_steps
+GROUP BY step_name
+ORDER BY failure_rate DESC;
+```
+
+---
+
+### Dashboard 3: Telemetry Insights
+
+```sql
+-- Event counts by type (last 24h)
+SELECT
+  event_type,
+  COUNT(*) as count
+FROM telemetry_events
+WHERE created_at > datetime('now', '-24 hours')
+GROUP BY event_type
+ORDER BY count DESC;
+
+-- Token expiry rate
+SELECT
+  COUNT(CASE WHEN event_type = 'token_expired' THEN 1 END) * 100.0 /
+  COUNT(CASE WHEN event_type IN ('token_generated', 'token_validated', 'token_expired') THEN 1 END)
+  as expiry_rate
+FROM telemetry_events;
+
+-- Error frequency by type
+SELECT
+  json_extract(metadata, '$.error_type') as error_type,
+  COUNT(*) as count
+FROM telemetry_events
+WHERE event_type = 'error_occurred'
+GROUP BY error_type
+ORDER BY count DESC;
+```
+
+---
+
+### Dashboard 4: User Activity
+
+```sql
+-- Active workflows (last 7 days)
+SELECT DATE(started_at) as date, COUNT(*) as workflows
+FROM workflow_executions
+WHERE started_at > datetime('now', '-7 days')
+GROUP BY DATE(started_at)
+ORDER BY date;
+
+-- Abandonment analysis
+SELECT
+  workflow_name,
+  COUNT(*) as abandoned_count,
+  AVG(julianday(updated_at) - julianday(started_at)) * 24 * 60 as avg_minutes_before_abandon
+FROM workflow_executions
+WHERE state = 'abandoned'
+GROUP BY workflow_name;
+```
+
+---
+
+## Database Consistency Guarantees
+
+### Transactional Operations
+
+All multi-step writes MUST use transactions:
+
+```typescript
+class StepExecutor {
+  async completeStepAndStartNext(executionId: string, stepName: string, output: StepOutput) {
+    this.db.transaction(() => {
+      // 1. Complete previous step
+      this.completeStep(executionId, stepName, output);
+
+      // 2. Store artifacts
+      this.storeArtifacts(executionId, stepName, output.artifacts);
+
+      // 3. Log telemetry
+      this.logTelemetry('step_completed', executionId, stepName);
+
+      // 4. Start next step (if exists)
+      const nextStep = this.getNextStep(executionId);
+      if (nextStep) {
+        this.startStep(executionId, nextStep.name, nextStep.agent_name);
+      }
+    })();
+  }
+}
+```
+
+**ALL operations with multiple INSERTs/UPDATEs must use `db.transaction()`**
+
+### Crash Recovery
+
+If server crashes mid-execution:
+
+1. **Running workflows** → Auto-transition to `abandoned` on next startup
+2. **Partial artifacts** → Remain with `is_final = 0`
+3. **Incomplete steps** → Remain with `status = 'running'`
+
+Cleanup script (run on startup):
+```sql
+-- Find orphaned executions (updated > 30 min ago, still running)
+UPDATE workflow_executions
+SET state = 'abandoned',
+    updated_at = CURRENT_TIMESTAMP,
+    metadata = json_set(metadata, '$.auto_abandoned', 'true')
+WHERE state = 'running'
+  AND updated_at < datetime('now', '-30 minutes');
+```
+
+---
+
+## Database Performance Considerations
+
+### Indexes (Already Created)
+
+```sql
+-- Executions
+CREATE INDEX idx_executions_state ON workflow_executions(state);
+CREATE INDEX idx_executions_workflow ON workflow_executions(workflow_name);
+CREATE INDEX idx_executions_started ON workflow_executions(started_at);
+
+-- Steps
+CREATE INDEX idx_steps_execution ON workflow_steps(execution_id);
+CREATE INDEX idx_steps_status ON workflow_steps(status);
+
+-- Artifacts
+CREATE INDEX idx_artifacts_execution ON workflow_artifacts(execution_id);
+CREATE INDEX idx_artifacts_final ON workflow_artifacts(is_final);
+CREATE INDEX idx_artifacts_type ON workflow_artifacts(artifact_type);
+
+-- Telemetry
+CREATE INDEX idx_telemetry_type ON telemetry_events(event_type);
+CREATE INDEX idx_telemetry_execution ON telemetry_events(execution_id);
+CREATE INDEX idx_telemetry_created ON telemetry_events(created_at);
+```
+
+### Query Optimization
+
+- Use `EXPLAIN QUERY PLAN` for dashboard queries
+- Limit results with `LIMIT` clause (default 100)
+- Add pagination for web client (`OFFSET` + `LIMIT`)
+- Use prepared statements (already done via better-sqlite3)
+
+### Vacuum Strategy
+
+Run periodic vacuum to reclaim space:
+```sql
+-- Run weekly via cron
+VACUUM;
+ANALYZE;
+```
+
+---
+
+## Summary: Database as Core Component
+
+**Every workflow operation:**
+1. Reads from database (validate state)
+2. Performs business logic
+3. Writes to database (update state + telemetry)
+4. Returns response
+
+**No in-memory state** (prevents data loss on crash, enables distributed deployment later)
+
+**Web client queries directly from database** (no API layer needed for v1)
+
+**Telemetry events enable:**
+- Real-time monitoring
+- Performance analysis
+- Error tracking
+- User behavior insights
+- A/B testing of workflows
 
 ---
 
