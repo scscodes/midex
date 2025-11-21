@@ -2,34 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Nav } from '@/components/Nav';
-
-interface SecretInfo {
-  name: string;
-  project: string;
-  lastAccess: string;
-  expiresAt: string | null;
-  accessCount: number;
-}
-
-interface AccessLog {
-  id: string;
-  secret: string;
-  project: string;
-  action: string;
-  timestamp: string;
-  user: string;
-}
-
-interface SecurityData {
-  secrets: SecretInfo[];
-  accessLogs: AccessLog[];
-  stats: {
-    totalSecrets: number;
-    expiringIn7Days: number;
-    accessesLast24h: number;
-    leakIncidents: number;
-  };
-}
+import type { SecurityData, SecretInfo } from '@/lib/types';
 
 export default function SecurityPage() {
   const [data, setData] = useState<SecurityData | null>(null);

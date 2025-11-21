@@ -2,23 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { Nav } from '@/components/Nav';
-
-interface Workflow {
-  name: string;
-  description: string;
-  tags: string;
-  complexity: string;
-  phases: string;
-}
-
-interface ParsedPhase {
-  name: string;
-  agent: string;
-  steps: string[];
-}
+import { parsePhases, parseTags, getComplexityColor } from '@/lib/utils';
+import type { WorkflowRow, ParsedPhase } from '@/lib/types';
 
 export default function WorkflowsPage() {
-  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [workflows, setWorkflows] = useState<WorkflowRow[]>([]);
   const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,31 +19,6 @@ export default function WorkflowsPage() {
       })
       .catch(() => setLoading(false));
   }, []);
-
-  const parsePhases = (phasesJson: string): ParsedPhase[] => {
-    try {
-      return JSON.parse(phasesJson) || [];
-    } catch {
-      return [];
-    }
-  };
-
-  const parseTags = (tagsJson: string): string[] => {
-    try {
-      return JSON.parse(tagsJson) || [];
-    } catch {
-      return [];
-    }
-  };
-
-  const getComplexityColor = (complexity: string) => {
-    switch (complexity?.toLowerCase()) {
-      case 'low': return 'bg-green-500/20 text-green-400';
-      case 'moderate': return 'bg-yellow-500/20 text-yellow-400';
-      case 'high': return 'bg-red-500/20 text-red-400';
-      default: return 'bg-gray-500/20 text-gray-400';
-    }
-  };
 
   const selected = workflows.find(w => w.name === selectedWorkflow);
 

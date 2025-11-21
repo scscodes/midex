@@ -1,43 +1,56 @@
 import { NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { getAggregateStats } from '@/lib/db';
+import type { SecurityData, SecretInfo, AccessLog } from '@/lib/types';
 
-export async function GET() {
-  const db = getDb();
+const SEVEN_DAYS_MS = 7 * 86400000;
 
-  // Get basic stats to derive mock security data
-  const executions = db.prepare('SELECT COUNT(*) as count FROM workflow_executions_v2').get() as { count: number };
+function generateMockSecrets(count: number): SecretInfo[] {
+  const now = Date.now();
+  const templates: SecretInfo[] = [
+    { name: 'OPENAI_API_KEY', project: 'backend-api', lastAccess: new Date(now).toISOString(), expiresAt: null, accessCount: 45 },
+    { name: 'DATABASE_URL', project: 'backend-api', lastAccess: new Date(now - 3600000).toISOString(), expiresAt: null, accessCount: 120 },
+    { name: 'AWS_SECRET_KEY', project: 'infrastructure', lastAccess: new Date(now - 7200000).toISOString(), expiresAt: new Date(now + 5 * 86400000).toISOString(), accessCount: 23 },
+    { name: 'STRIPE_SECRET', project: 'frontend-app', lastAccess: new Date(now - 86400000).toISOString(), expiresAt: null, accessCount: 67 },
+  ];
+  return templates.slice(0, Math.min(count, templates.length));
+}
 
-  // Simulated secrets data (would come from secrets_registry table)
-  const projectCount = Math.max(2, Math.floor(executions.count / 10));
+function generateMockAccessLogs(count: number): AccessLog[] {
+  const now = Date.now();
+  const templates: AccessLog[] = [
+    { id: '1', secret: 'OPENAI_API_KEY', project: 'backend-api', action: 'Read', timestamp: new Date(now).toISOString(), user: 'workflow-runner' },
+    { id: '2', secret: 'DATABASE_URL', project: 'backend-api', action: 'Read', timestamp: new Date(now - 1800000).toISOString(), user: 'workflow-runner' },
+    { id: '3', secret: 'AWS_SECRET_KEY', project: 'infrastructure', action: 'Read', timestamp: new Date(now - 3600000).toISOString(), user: 'deploy-agent' },
+    { id: '4', secret: 'STRIPE_SECRET', project: 'frontend-app', action: 'Rotated', timestamp: new Date(now - 86400000).toISOString(), user: 'admin' },
+  ];
+  return templates.slice(0, Math.min(count, templates.length));
+}
 
-  const secrets = [
-    { name: 'OPENAI_API_KEY', project: 'backend-api', lastAccess: new Date().toISOString(), expiresAt: null, accessCount: 45 },
-    { name: 'DATABASE_URL', project: 'backend-api', lastAccess: new Date(Date.now() - 3600000).toISOString(), expiresAt: null, accessCount: 120 },
-    { name: 'AWS_SECRET_KEY', project: 'infrastructure', lastAccess: new Date(Date.now() - 7200000).toISOString(), expiresAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(), accessCount: 23 },
-    { name: 'STRIPE_SECRET', project: 'frontend-app', lastAccess: new Date(Date.now() - 86400000).toISOString(), expiresAt: null, accessCount: 67 },
-  ].slice(0, projectCount * 2);
-
-  const accessLogs = [
-    { id: '1', secret: 'OPENAI_API_KEY', project: 'backend-api', action: 'Read', timestamp: new Date().toISOString(), user: 'workflow-runner' },
-    { id: '2', secret: 'DATABASE_URL', project: 'backend-api', action: 'Read', timestamp: new Date(Date.now() - 1800000).toISOString(), user: 'workflow-runner' },
-    { id: '3', secret: 'AWS_SECRET_KEY', project: 'infrastructure', action: 'Read', timestamp: new Date(Date.now() - 3600000).toISOString(), user: 'deploy-agent' },
-    { id: '4', secret: 'STRIPE_SECRET', project: 'frontend-app', action: 'Rotated', timestamp: new Date(Date.now() - 86400000).toISOString(), user: 'admin' },
-  ].slice(0, Math.min(executions.count, 10));
-
-  const expiringSecrets = secrets.filter(s => {
+function countExpiringSoon(secrets: SecretInfo[]): number {
+  return secrets.filter(s => {
     if (!s.expiresAt) return false;
     const diff = new Date(s.expiresAt).getTime() - Date.now();
-    return diff > 0 && diff < 7 * 24 * 60 * 60 * 1000;
-  });
+    return diff > 0 && diff < SEVEN_DAYS_MS;
+  }).length;
+}
 
-  return NextResponse.json({
+export async function GET() {
+  const stats = getAggregateStats();
+  const projectCount = Math.max(2, Math.floor(stats.executions / 10));
+
+  const secrets = generateMockSecrets(projectCount * 2);
+  const accessLogs = generateMockAccessLogs(Math.min(stats.executions, 10));
+
+  const data: SecurityData = {
     secrets,
     accessLogs,
     stats: {
       totalSecrets: secrets.length,
-      expiringIn7Days: expiringSecrets.length,
+      expiringIn7Days: countExpiringSoon(secrets),
       accessesLast24h: accessLogs.length,
-      leakIncidents: 0, // Always 0 - that's the point!
+      leakIncidents: 0,
     },
-  });
+  };
+
+  return NextResponse.json(data);
 }

@@ -2,33 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Nav } from '@/components/Nav';
-
-interface SavingsData {
-  filesManaged: number;
-  projectsManaged: number;
-  syncEvents: number;
-  driftPrevented: number;
-  secretsProtected: number;
-  hoursSaved: number;
-  lastSync: string | null;
-  driftEvents: DriftEvent[];
-  projectSyncStatus: ProjectSync[];
-}
-
-interface DriftEvent {
-  id: string;
-  project: string;
-  file: string;
-  detected_at: string;
-  status: 'detected' | 'resolved';
-}
-
-interface ProjectSync {
-  name: string;
-  lastSync: string;
-  configCount: number;
-  status: 'synced' | 'stale' | 'drifted';
-}
+import type { SavingsData, DriftEvent, ProjectSync } from '@/lib/types';
 
 export default function SavingsPage() {
   const [data, setData] = useState<SavingsData | null>(null);

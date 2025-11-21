@@ -1,127 +1,155 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import type {
+  TelemetryEventRow,
+  ExecutionRow,
+  ExecutionStepRow,
+  WorkflowRow,
+  Stats,
+  WorkflowStats,
+} from './types';
 
 const DB_PATH = process.env.MIDEX_DB_PATH || path.join(process.cwd(), '..', 'shared', 'database', 'app.db');
 
-let db: Database.Database | null = null;
+let dbInstance: Database.Database | null = null;
 
 export function getDb(): Database.Database {
-  if (!db) {
-    db = new Database(DB_PATH, { readonly: true });
-    db.pragma('journal_mode = WAL');
+  if (!dbInstance) {
+    dbInstance = new Database(DB_PATH, { readonly: true });
+    dbInstance.pragma('journal_mode = WAL');
   }
-  return db;
+  return dbInstance;
 }
 
-// Telemetry queries
 export function getTelemetryEvents(options: {
   executionId?: string;
   eventType?: string;
   limit?: number;
   since?: string;
-}) {
-  const db = getDb();
+}): TelemetryEventRow[] {
   const { executionId, eventType, limit = 100, since } = options;
-
-  let query = 'SELECT * FROM telemetry_events_v2 WHERE 1=1';
+  const conditions: string[] = [];
   const params: (string | number)[] = [];
 
   if (executionId) {
-    query += ' AND execution_id = ?';
+    conditions.push('execution_id = ?');
     params.push(executionId);
   }
   if (eventType) {
-    query += ' AND event_type = ?';
+    conditions.push('event_type = ?');
     params.push(eventType);
   }
   if (since) {
-    query += ' AND created_at > ?';
+    conditions.push('created_at > ?');
     params.push(since);
   }
 
-  query += ' ORDER BY created_at DESC LIMIT ?';
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const query = `SELECT * FROM telemetry_events_v2 ${where} ORDER BY created_at DESC LIMIT ?`;
   params.push(Math.min(limit, 1000));
 
-  return db.prepare(query).all(...params);
+  return getDb().prepare(query).all(...params) as TelemetryEventRow[];
 }
 
-// Execution queries
-export function getExecutions(options: { state?: string; limit?: number }) {
-  const db = getDb();
+export function getExecutions(options: { state?: string; limit?: number }): ExecutionRow[] {
   const { state, limit = 50 } = options;
 
-  let query = 'SELECT * FROM workflow_executions_v2 WHERE 1=1';
-  const params: (string | number)[] = [];
-
   if (state) {
-    query += ' AND state = ?';
-    params.push(state);
+    return getDb()
+      .prepare('SELECT * FROM workflow_executions_v2 WHERE state = ? ORDER BY started_at DESC LIMIT ?')
+      .all(state, Math.min(limit, 100)) as ExecutionRow[];
   }
 
-  query += ' ORDER BY started_at DESC LIMIT ?';
-  params.push(Math.min(limit, 100));
-
-  return db.prepare(query).all(...params);
+  return getDb()
+    .prepare('SELECT * FROM workflow_executions_v2 ORDER BY started_at DESC LIMIT ?')
+    .all(Math.min(limit, 100)) as ExecutionRow[];
 }
 
-export function getExecution(executionId: string) {
-  const db = getDb();
-  return db.prepare('SELECT * FROM workflow_executions_v2 WHERE execution_id = ?').get(executionId);
+export function getExecution(executionId: string): ExecutionRow | undefined {
+  return getDb()
+    .prepare('SELECT * FROM workflow_executions_v2 WHERE execution_id = ?')
+    .get(executionId) as ExecutionRow | undefined;
 }
 
-export function getExecutionSteps(executionId: string) {
-  const db = getDb();
-  return db.prepare('SELECT * FROM workflow_steps_v2 WHERE execution_id = ? ORDER BY id ASC').all(executionId);
+export function getExecutionSteps(executionId: string): ExecutionStepRow[] {
+  return getDb()
+    .prepare('SELECT * FROM workflow_steps_v2 WHERE execution_id = ? ORDER BY id ASC')
+    .all(executionId) as ExecutionStepRow[];
 }
 
-// Workflow queries
-export function getWorkflows() {
-  const db = getDb();
-  return db.prepare('SELECT name, description, tags, complexity, phases FROM workflows ORDER BY name ASC').all();
+export function getWorkflows(): WorkflowRow[] {
+  return getDb()
+    .prepare('SELECT name, description, tags, complexity, phases FROM workflows ORDER BY name ASC')
+    .all() as WorkflowRow[];
 }
 
-export function getWorkflow(name: string) {
-  const db = getDb();
-  return db.prepare('SELECT * FROM workflows WHERE name = ?').get(name);
+export function getWorkflow(name: string): WorkflowRow | undefined {
+  return getDb()
+    .prepare('SELECT * FROM workflows WHERE name = ?')
+    .get(name) as WorkflowRow | undefined;
 }
 
-export function getWorkflowStats(workflowName: string) {
-  const db = getDb();
-
-  const total = db.prepare('SELECT COUNT(*) as count FROM workflow_executions_v2 WHERE workflow_name = ?').get(workflowName) as { count: number };
-  const completed = db.prepare("SELECT COUNT(*) as count FROM workflow_executions_v2 WHERE workflow_name = ? AND state = 'completed'").get(workflowName) as { count: number };
-  const failed = db.prepare("SELECT COUNT(*) as count FROM workflow_executions_v2 WHERE workflow_name = ? AND state = 'failed'").get(workflowName) as { count: number };
-
-  const avgDuration = db.prepare(`
-    SELECT AVG(CAST((julianday(completed_at) - julianday(started_at)) * 86400 AS INTEGER)) as avg_seconds
+export function getWorkflowStats(workflowName: string): WorkflowStats {
+  const result = getDb().prepare(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN state = 'completed' THEN 1 ELSE 0 END) as completed,
+      SUM(CASE WHEN state = 'failed' THEN 1 ELSE 0 END) as failed,
+      AVG(CASE
+        WHEN state = 'completed' AND completed_at IS NOT NULL
+        THEN CAST((julianday(completed_at) - julianday(started_at)) * 86400 AS INTEGER)
+        ELSE NULL
+      END) as avg_seconds
     FROM workflow_executions_v2
-    WHERE workflow_name = ? AND state = 'completed' AND completed_at IS NOT NULL
-  `).get(workflowName) as { avg_seconds: number | null };
+    WHERE workflow_name = ?
+  `).get(workflowName) as { total: number; completed: number; failed: number; avg_seconds: number | null };
 
-  const workflow = db.prepare('SELECT manual_equivalent_minutes FROM workflows WHERE name = ?').get(workflowName) as { manual_equivalent_minutes?: number } | undefined;
+  const workflow = getDb()
+    .prepare('SELECT manual_equivalent_minutes FROM workflows WHERE name = ?')
+    .get(workflowName) as { manual_equivalent_minutes?: number } | undefined;
 
   return {
-    total: total.count,
-    completed: completed.count,
-    failed: failed.count,
-    avgDuration: avgDuration.avg_seconds || 0,
-    manualEquivalent: workflow?.manual_equivalent_minutes || 60,
+    total: result.total,
+    completed: result.completed ?? 0,
+    failed: result.failed ?? 0,
+    avgDuration: result.avg_seconds ?? 0,
+    manualEquivalent: workflow?.manual_equivalent_minutes ?? 60,
   };
 }
 
-// Stats queries
-export function getStats() {
-  const db = getDb();
+export function getStats(): Stats {
+  const result = getDb().prepare(`
+    SELECT
+      SUM(CASE WHEN state = 'running' THEN 1 ELSE 0 END) as active,
+      SUM(CASE WHEN state = 'completed' AND completed_at > datetime('now', '-24 hours') THEN 1 ELSE 0 END) as completed_24h,
+      SUM(CASE WHEN state = 'failed' THEN 1 ELSE 0 END) as failed
+    FROM workflow_executions_v2
+  `).get() as { active: number; completed_24h: number; failed: number };
 
-  const active = db.prepare("SELECT COUNT(*) as count FROM workflow_executions_v2 WHERE state = 'running'").get() as { count: number };
-  const completed24h = db.prepare("SELECT COUNT(*) as count FROM workflow_executions_v2 WHERE state = 'completed' AND completed_at > datetime('now', '-24 hours')").get() as { count: number };
-  const failed = db.prepare("SELECT COUNT(*) as count FROM workflow_executions_v2 WHERE state = 'failed'").get() as { count: number };
-  const recentEvents = db.prepare("SELECT COUNT(*) as count FROM telemetry_events_v2 WHERE created_at > datetime('now', '-1 hour')").get() as { count: number };
+  const events = getDb().prepare(`
+    SELECT COUNT(*) as count FROM telemetry_events_v2 WHERE created_at > datetime('now', '-1 hour')
+  `).get() as { count: number };
 
   return {
-    activeWorkflows: active.count,
-    completedLast24h: completed24h.count,
-    failedWorkflows: failed.count,
-    eventsLastHour: recentEvents.count,
+    activeWorkflows: result.active ?? 0,
+    completedLast24h: result.completed_24h ?? 0,
+    failedWorkflows: result.failed ?? 0,
+    eventsLastHour: events.count,
+  };
+}
+
+export function getAggregateStats(): { workflows: number; executions: number; completed: number } {
+  const result = getDb().prepare(`
+    SELECT
+      COUNT(DISTINCT workflow_name) as workflows,
+      COUNT(*) as executions,
+      SUM(CASE WHEN state = 'completed' THEN 1 ELSE 0 END) as completed
+    FROM workflow_executions_v2
+  `).get() as { workflows: number; executions: number; completed: number };
+
+  return {
+    workflows: result.workflows ?? 0,
+    executions: result.executions ?? 0,
+    completed: result.completed ?? 0,
   };
 }

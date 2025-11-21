@@ -2,17 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Nav } from '@/components/Nav';
-
-interface WorkflowEfficiency {
-  name: string;
-  description: string;
-  total: number;
-  completed: number;
-  avgDuration: number;
-  manualEquivalent: number;
-  savedHours: number;
-  savedDollars: number;
-}
+import { formatDuration } from '@/lib/utils';
+import type { WorkflowEfficiency } from '@/lib/types';
 
 export default function EfficiencyPage() {
   const [workflows, setWorkflows] = useState<WorkflowEfficiency[]>([]);
