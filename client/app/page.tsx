@@ -16,8 +16,22 @@ export default function Dashboard() {
         fetch('/api/stats'),
         fetch('/api/telemetry?limit=10'),
       ]);
-      setStats(await statsRes.json());
-      setEvents(await eventsRes.json());
+
+      // Validate responses and handle errors
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        if (!statsData.error) {
+          setStats(statsData);
+        }
+      }
+
+      if (eventsRes.ok) {
+        const eventsData = await eventsRes.json();
+        // Ensure it's an array before setting
+        if (Array.isArray(eventsData)) {
+          setEvents(eventsData);
+        }
+      }
     } catch (err) {
       console.error('Failed to fetch:', err);
     } finally {

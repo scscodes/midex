@@ -18,7 +18,12 @@ export default function ExecutionsPage() {
       if (filter !== 'all') params.set('state', filter);
 
       const res = await fetch(`/api/executions?${params}`);
-      setExecutions(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setExecutions(data);
+        }
+      }
     } catch (err) {
       console.error('Failed to fetch:', err);
     } finally {
