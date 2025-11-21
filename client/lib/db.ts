@@ -85,6 +85,30 @@ export function getWorkflow(name: string) {
   return db.prepare('SELECT * FROM workflows WHERE name = ?').get(name);
 }
 
+export function getWorkflowStats(workflowName: string) {
+  const db = getDb();
+
+  const total = db.prepare('SELECT COUNT(*) as count FROM workflow_executions_v2 WHERE workflow_name = ?').get(workflowName) as { count: number };
+  const completed = db.prepare("SELECT COUNT(*) as count FROM workflow_executions_v2 WHERE workflow_name = ? AND state = 'completed'").get(workflowName) as { count: number };
+  const failed = db.prepare("SELECT COUNT(*) as count FROM workflow_executions_v2 WHERE workflow_name = ? AND state = 'failed'").get(workflowName) as { count: number };
+
+  const avgDuration = db.prepare(`
+    SELECT AVG(CAST((julianday(completed_at) - julianday(started_at)) * 86400 AS INTEGER)) as avg_seconds
+    FROM workflow_executions_v2
+    WHERE workflow_name = ? AND state = 'completed' AND completed_at IS NOT NULL
+  `).get(workflowName) as { avg_seconds: number | null };
+
+  const workflow = db.prepare('SELECT manual_equivalent_minutes FROM workflows WHERE name = ?').get(workflowName) as { manual_equivalent_minutes?: number } | undefined;
+
+  return {
+    total: total.count,
+    completed: completed.count,
+    failed: failed.count,
+    avgDuration: avgDuration.avg_seconds || 0,
+    manualEquivalent: workflow?.manual_equivalent_minutes || 60,
+  };
+}
+
 // Stats queries
 export function getStats() {
   const db = getDb();
