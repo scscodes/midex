@@ -11,8 +11,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "start": "node dist/mcp/server.js",
-    "start:v2": "node dist/mcp-v2/server.js"
+    "start": "node dist/mcp/server.js"
   },
   "keywords": [],
   "author": "",

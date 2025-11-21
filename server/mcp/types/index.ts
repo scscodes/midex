@@ -38,7 +38,7 @@ export const WorkflowExecutionSchema = z.object({
   updated_at: z.string().datetime(),
   completed_at: z.string().datetime().nullable(),
   duration_ms: z.number().int().nullable(),
-  metadata: z.record(z.unknown()).nullable(),
+  metadata: z.record(z.string(), z.unknown()).nullable(),
 });
 export type WorkflowExecution = z.infer<typeof WorkflowExecutionSchema>;
 
@@ -51,7 +51,7 @@ export const WorkflowStepSchema = z.object({
   started_at: z.string().datetime().nullable(),
   completed_at: z.string().datetime().nullable(),
   duration_ms: z.number().int().nullable(),
-  output: z.record(z.unknown()).nullable(),
+  output: z.record(z.string(), z.unknown()).nullable(),
   token: z.string().nullable(),
 });
 export type WorkflowStep = z.infer<typeof WorkflowStepSchema>;
@@ -77,7 +77,7 @@ export const WorkflowArtifactSchema = z.object({
   content: z.string(),
   content_type: z.string(),
   size_bytes: z.number().int().nonnegative(),
-  metadata: z.record(z.unknown()).nullable(),
+  metadata: z.record(z.string(), z.unknown()).nullable(),
   created_at: z.string().datetime(),
 });
 export type WorkflowArtifact = z.infer<typeof WorkflowArtifactSchema>;
@@ -106,7 +106,7 @@ export const TelemetryEventSchema = z.object({
   execution_id: z.string().nullable(),
   step_name: z.string().nullable(),
   agent_name: z.string().nullable(),
-  metadata: z.record(z.unknown()).nullable(),
+  metadata: z.record(z.string(), z.unknown()).nullable(),
   created_at: z.string().datetime(),
 });
 export type TelemetryEvent = z.infer<typeof TelemetryEventSchema>;

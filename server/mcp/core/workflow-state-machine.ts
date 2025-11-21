@@ -54,7 +54,7 @@ export class WorkflowStateMachine {
       updated_at: parsed.updated_at,
       completed_at: parsed.completed_at,
       duration_ms: parsed.duration_ms,
-      metadata: safeJsonParse(parsed.metadata, null),
+      metadata: safeJsonParse<Record<string, unknown> | null>(parsed.metadata, null),
     };
   }
 
@@ -115,7 +115,7 @@ export class WorkflowStateMachine {
           updated_at: parsed.updated_at,
           completed_at: parsed.completed_at,
           duration_ms: parsed.duration_ms,
-          metadata: safeJsonParse(parsed.metadata, null),
+          metadata: safeJsonParse<Record<string, unknown> | null>(parsed.metadata, null),
         };
       })
       .filter((e): e is WorkflowExecution => e !== null);
@@ -139,7 +139,7 @@ export class WorkflowStateMachine {
           updated_at: parsed.updated_at,
           completed_at: parsed.completed_at,
           duration_ms: parsed.duration_ms,
-          metadata: safeJsonParse(parsed.metadata, null),
+          metadata: safeJsonParse<Record<string, unknown> | null>(parsed.metadata, null),
         };
       })
       .filter((e): e is WorkflowExecution => e !== null);

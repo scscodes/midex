@@ -166,7 +166,7 @@ export class StepExecutor {
       started_at: parsed.started_at,
       completed_at: parsed.completed_at,
       duration_ms: parsed.duration_ms,
-      output: safeJsonParse(parsed.output, null),
+      output: safeJsonParse<Record<string, unknown> | null>(parsed.output, null),
       token: parsed.token,
     };
   }
@@ -191,7 +191,7 @@ export class StepExecutor {
           started_at: parsed.started_at,
           completed_at: parsed.completed_at,
           duration_ms: parsed.duration_ms,
-          output: safeJsonParse(parsed.output, null),
+          output: safeJsonParse<Record<string, unknown> | null>(parsed.output, null),
           token: parsed.token,
         };
       })

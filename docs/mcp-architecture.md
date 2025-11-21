@@ -1,13 +1,13 @@
-# MCP v2 Architecture
+# MCP Architecture
 
 ## Overview
 
-MCP v2 is a resources-first workflow orchestration system built on the Model Context Protocol. It enables LLM-driven workflow execution through a token-based state machine.
+MCP is a resources-first workflow orchestration system built on the Model Context Protocol. It enables LLM-driven workflow execution through a token-based state machine.
 
 ## Core Components
 
 ```
-server/mcp-v2/
+server/mcp/
 ├── server.ts           # MCP server entry point
 ├── types/index.ts      # Zod schemas and TypeScript types
 ├── lib/

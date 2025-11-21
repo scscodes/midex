@@ -1,10 +1,10 @@
-# MCP v2 - Workflow Orchestration Server
+# MCP - Workflow Orchestration Server
 
 **Resources-first architecture for step-by-step workflow execution with LLM agents**
 
 ## Overview
 
-MCP v2 implements a refined workflow orchestration system that follows MCP best practices:
+The MCP server implements a refined workflow orchestration system that follows MCP best practices:
 - **7 Resources (READ)**: Query workflow state and retrieve agent personas
 - **2 Tools (WRITE)**: Start workflows and advance through steps
 - **Token-based continuation**: Secure step-by-step execution
@@ -14,7 +14,7 @@ MCP v2 implements a refined workflow orchestration system that follows MCP best 
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    MCP Server v2                        │
+│                      MCP Server                          │
 ├─────────────────────────────────────────────────────────┤
 │  Resources (READ)           │  Tools (WRITE)            │
 │  ├─ available_workflows     │  ├─ workflow.start        │
@@ -31,10 +31,10 @@ MCP v2 implements a refined workflow orchestration system that follows MCP best 
 │  └─ StepExecutor (transactional step coordination)     │
 ├─────────────────────────────────────────────────────────┤
 │  Database (Single Source of Truth)                     │
-│  ├─ workflow_executions_v2                             │
-│  ├─ workflow_steps_v2                                  │
-│  ├─ workflow_artifacts_v2                              │
-│  └─ telemetry_events_v2                                │
+│  ├─ workflow_executions_                            │
+│  ├─ workflow_steps_                                 │
+│  ├─ workflow_artifacts_                             │
+│  └─ telemetry_events_                               │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -381,7 +381,7 @@ idle ──────► running ──────► completed
 Primary state table for workflow execution tracking.
 
 ```sql
-CREATE TABLE workflow_executions_v2 (
+CREATE TABLE workflow_executions_v2(
   execution_id TEXT PRIMARY KEY,
   workflow_name TEXT NOT NULL,
   state TEXT NOT NULL,  -- 7 states: idle|running|paused|completed|failed|abandoned|diverged
@@ -398,7 +398,7 @@ CREATE TABLE workflow_executions_v2 (
 Step-level tracking with tokens and outputs.
 
 ```sql
-CREATE TABLE workflow_steps_v2 (
+CREATE TABLE workflow_steps_v2(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   execution_id TEXT NOT NULL,
   step_name TEXT NOT NULL,
@@ -417,7 +417,7 @@ CREATE TABLE workflow_steps_v2 (
 Stores workflow outputs and intermediate results.
 
 ```sql
-CREATE TABLE workflow_artifacts_v2 (
+CREATE TABLE workflow_artifacts_v2(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   execution_id TEXT NOT NULL,
   step_name TEXT NOT NULL,
@@ -435,7 +435,7 @@ CREATE TABLE workflow_artifacts_v2 (
 Comprehensive metrics and monitoring.
 
 ```sql
-CREATE TABLE telemetry_events_v2 (
+CREATE TABLE telemetry_events_v2(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   event_type TEXT NOT NULL,
   execution_id TEXT,
@@ -470,21 +470,21 @@ Tokens are base64url-encoded JSON payloads with 24-hour lifetime.
 
 ## Running the Server
 
-### Start MCP v2 Server
+### Start MCP Server
 ```bash
-npm run start:v2
+npm run start
 ```
 
 The server runs on stdio and outputs:
 ```
-midex-mcp-v2 v2.0.0 running on stdio
+midex-mcp v2.0.0 running on stdio
 Resources: 7 (available_workflows, workflow_details, current_step, workflow_status, step_history, workflow_artifacts, telemetry)
 Tools: 2 (workflow.start, workflow.next_step)
 ```
 
 ### Run Tests
 ```bash
-npm run test:run mcp-v2/workflow-execution.test.ts  # Run v2 tests only
+npm run test:run mcp/workflow-execution.test.ts  # Run tests only
 npm run test:run                                      # Run all tests (124 total)
 ```
 
@@ -557,14 +557,14 @@ READ midex://workflow/workflow_status/exec_123
 **Total LOC**: ~2,000 lines (vs reference implementation's 10,000+)
 
 **Files**:
-- `server/mcp-v2/types/index.ts` (300 LOC) - Type definitions and schemas
-- `server/mcp-v2/core/token-service.ts` (110 LOC) - Token generation/validation
-- `server/mcp-v2/core/workflow-state-machine.ts` (220 LOC) - State management
-- `server/mcp-v2/core/step-executor.ts` (350 LOC) - Step coordination
-- `server/mcp-v2/resources/index.ts` (450 LOC) - Resource handlers
-- `server/mcp-v2/tools/index.ts` (230 LOC) - Tool handlers
-- `server/mcp-v2/server.ts` (350 LOC) - MCP server entry point
-- `server/mcp-v2/workflow-execution.test.ts` (380 LOC) - Integration tests
+- `server/mcp/types/index.ts` (300 LOC) - Type definitions and schemas
+- `server/mcp/core/token-service.ts` (110 LOC) - Token generation/validation
+- `server/mcp/core/workflow-state-machine.ts` (220 LOC) - State management
+- `server/mcp/core/step-executor.ts` (350 LOC) - Step coordination
+- `server/mcp/resources/index.ts` (450 LOC) - Resource handlers
+- `server/mcp/tools/index.ts` (230 LOC) - Tool handlers
+- `server/mcp/server.ts` (350 LOC) - MCP server entry point
+- `server/mcp/workflow-execution.test.ts` (380 LOC) - Integration tests
 
 **Test Coverage**:
 - 15 integration tests covering all core functionality
@@ -580,9 +580,9 @@ READ midex://workflow/workflow_status/exec_123
 - No in-memory state
 - Comprehensive telemetry for all operations
 
-## Comparison: v2 vs Reference Implementation
+## Comparison: vs Reference Implementation
 
-| Aspect | Reference (Shelved) | v2 (Current) |
+| Aspect | Reference (Shelved) | (Current) |
 |--------|---------------------|--------------|
 | LOC | ~10,000 | ~2,000 |
 | State boundaries | 3 (unclear) | 7 (explicit) |
