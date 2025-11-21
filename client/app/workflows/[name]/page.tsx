@@ -2,7 +2,6 @@
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
-import { Nav } from '@/components/Nav';
 import type { WorkflowRow, WorkflowStats } from '@/lib/types';
 import { parsePhases, formatDuration } from '@/lib/utils';
 
@@ -47,9 +46,7 @@ export default function WorkflowDetailPage({ params }: { params: Promise<{ name:
   const savings = calculateSavings();
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white">
-      <Nav />
-      <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="space-y-6">
         <Link href="/workflows" className="text-blue-400 hover:underline text-sm mb-4 inline-block">
           ← Back to Workflows
         </Link>
@@ -140,7 +137,6 @@ export default function WorkflowDetailPage({ params }: { params: Promise<{ name:
             </div>
           </>
         )}
-      </div>
-    </main>
+    </div>
   );
 }

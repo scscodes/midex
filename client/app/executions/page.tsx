@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import type { ExecutionRow, ExecutionState } from '@/lib/types';
 import { formatDurationMs } from '@/lib/utils';
@@ -12,7 +12,7 @@ export default function ExecutionsPage() {
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
 
-  const fetchExecutions = async () => {
+  const fetchExecutions = useCallback(async () => {
     try {
       const params = new URLSearchParams({ limit: '50' });
       if (filter !== 'all') params.set('state', filter);
@@ -29,17 +29,17 @@ export default function ExecutionsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter]);
 
   useEffect(() => {
     setLoading(true);
     fetchExecutions();
-  }, [filter]);
+  }, [filter, fetchExecutions]);
 
   useEffect(() => {
     const interval = setInterval(fetchExecutions, 5000);
     return () => clearInterval(interval);
-  }, [filter]);
+  }, [fetchExecutions]);
 
   const formatTime = (iso: string) => {
     return new Date(iso).toLocaleString();

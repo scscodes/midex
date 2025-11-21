@@ -1,16 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { StatCard } from '@/components/StatCard';
 import { EventList } from '@/components/EventList';
-import type { Stats } from '@/lib/types';
+import type { Stats, TelemetryEventRow } from '@/lib/types';
 
 export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<TelemetryEventRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [statsRes, eventsRes] = await Promise.all([
         fetch('/api/stats'),
@@ -37,13 +37,13 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchData]);
 
   if (loading) {
     return <div className="text-zinc-500">Loading...</div>;

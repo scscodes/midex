@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { EventList } from '@/components/EventList';
+import type { TelemetryEventRow } from '@/lib/types';
 
 const EVENT_TYPES = [
   'all',
@@ -18,12 +19,12 @@ const EVENT_TYPES = [
 ];
 
 export default function TelemetryPage() {
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<TelemetryEventRow[]>([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const lastTimestamp = useRef<string | null>(null);
 
-  const fetchEvents = async (since?: string) => {
+  const fetchEvents = useCallback(async (since?: string) => {
     try {
       const params = new URLSearchParams({ limit: '100' });
       if (filter !== 'all') params.set('event_type', filter);
@@ -50,13 +51,13 @@ export default function TelemetryPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter]);
 
   useEffect(() => {
     setLoading(true);
     lastTimestamp.current = null;
     fetchEvents();
-  }, [filter]);
+  }, [filter, fetchEvents]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -65,7 +66,7 @@ export default function TelemetryPage() {
       }
     }, 3000);
     return () => clearInterval(interval);
-  }, [filter]);
+  }, [fetchEvents]);
 
   return (
     <div className="space-y-4">

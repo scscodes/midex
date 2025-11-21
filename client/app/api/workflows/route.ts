@@ -6,7 +6,7 @@ export async function GET() {
     const workflows = getWorkflows();
 
     // Parse JSON fields
-    const parsed = workflows.map((w: any) => ({
+    const parsed = workflows.map((w) => ({
       ...w,
       tags: w.tags ? JSON.parse(w.tags) : [],
       phases: w.phases ? JSON.parse(w.phases) : [],
