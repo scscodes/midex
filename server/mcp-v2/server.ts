@@ -16,7 +16,7 @@ import { initDatabase } from '../database/index.js';
 import { getDatabasePath } from '../shared/config.js';
 import { ResourceHandlers } from './resources/index.js';
 import { ToolHandlers } from './tools/index.js';
-import { StartWorkflowArgsSchema, buildResourceError, buildToolError } from './lib/index.js';
+import { StartWorkflowArgsSchema, buildResourceError, buildToolError, extractErrorMessage } from './lib/index.js';
 
 const SERVER_NAME = 'midex-mcp-v2';
 const SERVER_VERSION = '2.0.0';
@@ -77,15 +77,18 @@ async function main() {
           if (!pathParts[1]) throw new Error('Missing execution ID');
           result = await resourceHandlers.getWorkflowArtifacts(pathParts[1], pathParts[2]);
           break;
-        case 'telemetry':
-          result = await resourceHandlers.getTelemetry(pathParts[1], url.searchParams.get('event_type') || undefined, parseInt(url.searchParams.get('limit') || '100'));
+        case 'telemetry': {
+          const limitParam = url.searchParams.get('limit');
+          const limit = limitParam ? Math.min(Math.max(1, parseInt(limitParam, 10) || 100), 1000) : 100;
+          result = await resourceHandlers.getTelemetry(pathParts[1], url.searchParams.get('event_type') || undefined, limit);
           break;
+        }
         default:
           throw new Error(`Unknown resource: ${resourceType}`);
       }
       return { contents: [result] };
     } catch (error) {
-      return { contents: [buildResourceError(uri, error instanceof Error ? error.message : String(error))] };
+      return { contents: [buildResourceError(uri, extractErrorMessage(error))] };
     }
   });
 

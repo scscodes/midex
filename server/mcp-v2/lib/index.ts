@@ -1,6 +1,7 @@
 export {
   safeJsonParse,
   decodeTokenPayload,
+  extractErrorMessage,
   TelemetryService,
   buildToolError,
   buildToolSuccess,

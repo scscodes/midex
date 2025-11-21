@@ -23,6 +23,10 @@ export function decodeTokenPayload(token: string): TokenPayload | null {
   }
 }
 
+export function extractErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export class TelemetryService {
   constructor(private db: Database) {}
 

@@ -1,5 +1,5 @@
 import type { Database } from 'better-sqlite3';
-import type { NextStepResult, WorkflowPhase } from '../types/index.js';
+import type { NextStepResult, WorkflowPhase, WorkflowState } from '../types/index.js';
 import { NextStepArgsSchema } from '../types/index.js';
 import { StepExecutor } from '../core/step-executor.js';
 import { safeJsonParse, decodeTokenPayload, buildToolError, buildToolSuccess, AgentRowSchema, safeParseRow } from '../lib/index.js';
@@ -50,7 +50,7 @@ export class ToolHandlers {
         execution_id: result.execution_id,
         step_name: result.step_name,
         agent_content: agent.content,
-        workflow_state: result.workflow_state as any,
+        workflow_state: result.workflow_state as WorkflowState,
         new_token: result.new_token,
         message: `Step '${result.step_name}' ready. Review agent_content and continue.`,
       };
