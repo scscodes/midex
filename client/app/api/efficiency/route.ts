@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getWorkflows, getWorkflowStats } from '@/lib/db';
 import type { WorkflowRow } from '@/lib/types';
 
+// Cache for 30 seconds - computed efficiency metrics
+export const revalidate = 30;
+
 export async function GET() {
   try {
     const workflows = getWorkflows();

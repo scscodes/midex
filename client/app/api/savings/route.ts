@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getAggregateStats } from '@/lib/db';
 import type { SavingsData, DriftEvent, ProjectSync } from '@/lib/types';
 
+// Cache for 30 seconds - computed savings metrics
+export const revalidate = 30;
+
 function generateMockProjectSync(count: number): ProjectSync[] {
   const now = Date.now();
   const templates: ProjectSync[] = [

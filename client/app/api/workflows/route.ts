@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getWorkflows } from '@/lib/db';
 
+// Cache for 60 seconds - workflow catalog rarely changes
+export const revalidate = 60;
+
 export async function GET() {
   try {
     const workflows = getWorkflows();

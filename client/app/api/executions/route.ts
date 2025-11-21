@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getExecutions } from '@/lib/db';
 
+// Cache for 10 seconds - execution list updates frequently
+export const revalidate = 10;
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

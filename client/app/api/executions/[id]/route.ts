@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getExecution, getExecutionSteps, getTelemetryEvents } from '@/lib/db';
 
+// Cache for 20 seconds - specific execution details
+export const revalidate = 20;
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
