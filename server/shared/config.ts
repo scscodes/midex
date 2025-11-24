@@ -112,7 +112,7 @@ export function getEnvBoolean(key: string, defaultValue: boolean): boolean {
 
 export function getContentPath(): string {
   // Priority: 1. Env var, 2. YAML config, 3. Default
-  const override = process.env.MIDE_CONTENT_PATH;
+  const override = process.env.MIDEX_CONTENT_PATH;
   if (override) {
     return resolve(process.cwd(), override);
   }
@@ -127,7 +127,7 @@ export function getContentPath(): string {
 
 export function getDatabasePath(): string {
   // Priority: 1. Env var, 2. YAML config, 3. Default
-  const override = process.env.MIDE_DB_PATH;
+  const override = process.env.MIDEX_DB_PATH;
   if (override) {
     return resolve(process.cwd(), override);
   }

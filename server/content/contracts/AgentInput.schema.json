@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "mide://contracts/agent/AgentInput.schema.json",
+  "$id": "midex://contracts/agent/AgentInput.schema.json",
   "title": "AgentInput",
   "type": "object",
   "additionalProperties": false,

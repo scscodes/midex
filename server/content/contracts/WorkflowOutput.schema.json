@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "mide://contracts/workflow/WorkflowOutput.schema.json",
+  "$id": "midex://contracts/workflow/WorkflowOutput.schema.json",
   "title": "WorkflowOutput",
   "type": "object",
   "additionalProperties": false,
