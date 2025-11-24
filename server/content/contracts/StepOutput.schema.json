@@ -23,24 +23,32 @@
         "required": ["type", "content"]
       }
     },
-    "findings": {
+    "findings": { "type": "array", "items": { "type": "string" } },
+    "next_step_recommendation": { "type": "string" },
+    "suggested_findings": {
       "type": "array",
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
-          "severity": { "type": "string" },
-          "category": { "type": "string" },
-          "description": { "type": "string" },
-          "location": { "type": "string" },
-          "recommendation": { "type": "string" }
+          "scope": { "type": "string", "enum": ["global", "project", "system"] },
+          "project_id": { "type": ["integer", "null"] },
+          "category": { "type": "string", "enum": ["security", "architecture", "performance", "constraint", "pattern"] },
+          "severity": { "type": "string", "enum": ["info", "low", "medium", "high", "critical"] },
+          "title": { "type": "string" },
+          "content": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "metadata": { "type": "object" }
         },
-        "required": ["severity", "description"]
+        "required": ["scope", "category", "severity", "title", "content"],
+        "allOf": [
+          {
+            "if": { "properties": { "scope": { "const": "project" } } },
+            "then": { "required": ["project_id"] }
+          }
+        ]
       }
-    },
-    "next_steps": { "type": "array", "items": { "type": "string" } },
-    "blockers": { "type": "array", "items": { "type": "string" } },
-    "references": { "type": "array", "items": { "type": "string" } },
-    "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+    }
   },
-  "required": ["summary", "artifacts", "references", "confidence"]
+  "required": ["summary"]
 }

@@ -30,6 +30,7 @@ You orchestrate complex development tasks by delegating to specialized agents wh
   - Base rules always: `server/content/rules/base_rules.md` (tags: base, global)
   - Language rules by file type: `typescript.md`, `javascript.md`, `python.md`
   - Specialized rules by workflow/task tags: `security.md`, `testing.md`, `hygiene.md`
+- Pull historical knowledge from `midex://knowledge/project/{project_id}` (when provided) plus `midex://knowledge/global` before planning; weave those constraints into every delegation.
 
 ## Project State and Standards
 
@@ -125,6 +126,8 @@ Aggregate strictly per `server/content/contracts/WorkflowOutput.schema.json`:
 - Preserve FULL artifacts; do not compress content
 - Merge decisions and findings; include references and confidence
 - Provide a concise summary at the top
+- Review `suggested_findings` from agent outputs, validate them, and call `knowledge.add_finding` for any item that should persist (scope = project/global/system as appropriate).
+- If a suggested finding needs refinement, update it directly before persisting or send it back through agents for clarification.
 
 ## Decision Framework
 

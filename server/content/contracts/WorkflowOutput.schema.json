@@ -18,6 +18,29 @@
     "artifacts": { "type": "array" },
     "decisions": { "type": "array" },
     "findings": { "type": "array" },
+    "suggested_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "scope": { "type": "string", "enum": ["global", "project", "system"] },
+          "project_id": { "type": ["integer", "null"] },
+          "category": { "type": "string", "enum": ["security", "architecture", "performance", "constraint", "pattern"] },
+          "severity": { "type": "string", "enum": ["info", "low", "medium", "high", "critical"] },
+          "title": { "type": "string" },
+          "content": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["scope", "category", "severity", "title", "content"],
+        "allOf": [
+          {
+            "if": { "properties": { "scope": { "const": "project" } } },
+            "then": { "required": ["project_id"] }
+          }
+        ]
+      }
+    },
     "next_steps": { "type": "array", "items": { "type": "string" } },
     "blockers": { "type": "array", "items": { "type": "string" } },
     "references": { "type": "array", "items": { "type": "string" } },
