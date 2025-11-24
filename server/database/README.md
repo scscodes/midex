@@ -1,5 +1,7 @@
 # Database & Migrations
 
+> **Note**: For high-level database schema documentation, see [MCP Workflow Orchestration](../../docs/MCP_WORKFLOW_ORCHESTRATION.md#database-schema). This document focuses on migration system implementation.
+
 This directory contains the database layer and migration system for midex.
 
 ## Overview

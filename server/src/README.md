@@ -1,5 +1,7 @@
 # Resource Pipeline
 
+> **Note**: For high-level documentation, see the [Documentation Index](../../docs/README.md). This document provides implementation details.
+
 Unified ETL (Extract, Transform, Load) pipeline for managing all resource types in midex. Replaces the fragmented content-registry and project-discovery systems with a clean, plugin-based architecture.
 
 ## Architecture

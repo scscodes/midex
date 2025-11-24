@@ -2,46 +2,11 @@
 
 Multi-agent workflow orchestration platform. Coordinates specialized AI agents (architect, implementer, reviewer, debugger, etc.) to perform complex software development tasks through structured workflows.
 
-## Architecture
-
-```
-server/
-├── database/           # SQLite with auto-migrations
-├── utils/              # Execution policies
-├── src/                # Resource Pipeline (ETL for all resources)
-└── mcp/                # MCP server + workflow orchestrator
-```
-
-### Infrastructure Layer
-
-**Database** - SQLite connection management via `better-sqlite3` with auto-migrations, WAL mode, FTS5 full-text search
-
-**Utilities** - Execution policies: complexity-aware timeout/retry/parallelism for all execution contexts
-
-### Application Layer
-
-**Resource Pipeline** (`server/src/`)
-- Unified ETL pipeline for all resource types
-- Plugin-based architecture: Extract → Transform → Load
-- Built-in plugins: Content, Projects, Tool Configs
-- See [Resource Pipeline Documentation](./server/src/README.md)
-
-### Feature Layer
-
-**MCP Server** (`server/mcp/`)
-- Resources-first architecture: 7 resources (READ), 2 tools (WRITE)
-- Token-based workflow continuation
-- Database-driven state (no in-memory state)
-- See [MCP Architecture](./docs/mcp-architecture.md)
-
-**Workflow State Machine**
-- 7-state lifecycle: `idle` → `running` → `completed/failed/paused/abandoned/diverged`
-- Transactional step execution with telemetry
-- Agent persona delivery via resources
-
 ## Quick Start
 
 ```bash
+npm install
+
 # Complete setup (deps + build + resource sync)
 npm run setup
 
@@ -51,8 +16,8 @@ npm run build
 # Run tests
 npm test
 
-# Start MCP server
-npm run mcp:start
+# Start MCP server and web client
+npm run dev
 ```
 
 ## Environment Variables
@@ -62,37 +27,39 @@ npm run mcp:start
 - `MIDEX_DISCOVERY_METHOD`: `autodiscover` (default) or `manual`
 - `MIDEX_PROJECT_PATH`: Target path for manual project discovery
 
-### Helpful scripts
+### Helpful Scripts
 
 - `npm run ensure:db` – creates the shared SQLite database (if needed) and runs all migrations. This now runs automatically before any dev/start command so both server and client can rely on up-to-date tables.
 
-## Key Features
+## Architecture Overview
 
-### Resource Pipeline
-- **Unified Management**: Single system for all resource types (content, projects, tool configs)
-- **Plugin Architecture**: Extensible with new resource types
-- **ETL Pattern**: Extract → Transform → Load with Zod validation
-- **Type-Safe**: Full TypeScript with strict mode
+```
+server/
+├── database/           # SQLite with auto-migrations
+├── utils/              # Execution policies
+├── src/                # Resource Pipeline (ETL for all resources)
+└── mcp/                # MCP server + workflow orchestrator
+```
 
-### Tool Configuration Discovery
-- **AI Tool Detection**: Auto-discovers Claude Code, Cursor, Windsurf, VS Code, IntelliJ configs
-- **MCP Server Configs**: Extracts MCP server definitions, agent rules, hooks
-- **OS-Agnostic**: Cross-platform support (Windows/macOS/Linux)
-- **Secret Redaction**: Pattern-based detection and redaction of API keys/tokens
-- **Config-Driven**: Runtime behavior controlled via `.tool-config.json`
+**Key Systems:**
+- **MCP Workflow Orchestration**: Token-based, multi-agent workflow execution with artifact persistence
+- **Resource Pipeline**: Unified ETL system for managing agents, workflows, rules, and tool configs
+- **Database**: SQLite with WAL mode, auto-migrations, and FTS5 full-text search
+- **Client**: Next.js web application for workflow monitoring and artifact viewing
 
-### Workflow Orchestration
-- **Multi-Agent Coordination**: Supervisor delegates to specialized agents
-- **Policy-Driven**: Complexity-based timeouts, retries, parallelism
-- **Structured Workflows**: Phases, steps, and agent tasks
-- **Execution Tracking**: Full telemetry and state management
+## Documentation
 
-### MCP Integration
-- **Workflow Engine**: `WorkflowEngine` wraps `WorkflowOrchestrator`, persisting executions/steps/logs to SQLite automatically.
-- **Lifecycle Tools**: `start_execution` now performs a full orchestrated run; legacy manual step APIs have been retired.
-- **State Persistence**: Execution tracking across sessions
-- **Project Association**: Auto-track projects and scope findings
-- **Full-Text Search**: FTS5-powered finding search
+For detailed documentation, see the [Documentation Index](./docs/README.md).
+
+**High-Level Guides:**
+- [MCP Workflow Orchestration](./docs/MCP_WORKFLOW_ORCHESTRATION.md) - Complete workflow system guide
+- [Client Scenarios](./docs/client-scenarios.md) - Web client use cases and implementation tracking
+- [MCP Architecture](./docs/mcp-architecture.md) - Technical architecture overview
+
+**Implementation References:**
+- [Resource Pipeline](./server/src/README.md) - ETL pipeline implementation
+- [MCP Server](./server/mcp/README.md) - MCP server implementation details
+- [Database](./server/database/README.md) - Schema and migration system
 
 ## Content Structure
 
@@ -104,14 +71,7 @@ server/content/
 └── contracts/    # I/O schemas for workflows/steps/agents
 ```
 
-**Key agents**: supervisor, architect, implementer, reviewer, debugger, security-specialist, performance-engineer
-
-**Key workflows**: feature-development, bug-fix, parallel-code-review, security-threat-assessment, component-performance-review
-
-## Documentation
-
-- [Resource Pipeline](./server/src/README.md) - Unified resource management
-- [CLAUDE.md](./CLAUDE.md) - AI assistant instructions
+See the [Content Model](./docs/MCP_WORKFLOW_ORCHESTRATION.md#artifact-lifecycle) section in the MCP Workflow Orchestration documentation for details on how content is structured and used.
 
 ## License
 
