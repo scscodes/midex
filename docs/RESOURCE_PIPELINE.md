@@ -69,19 +69,7 @@ The pipeline follows a three-stage **ETL pattern**:
 
 ## Plugin Architecture
 
-Each resource type is implemented as a **plugin** with three lifecycle methods:
-
-```typescript
-interface ResourcePlugin<T> {
-  readonly name: string;
-  readonly resourceType: string;
-
-  extract(options: ExtractOptions): Promise<RawResource[]>;
-  transform(raw: RawResource): Promise<TransformedResource<T>>;
-  load(transformed: TransformedResource<T>): Promise<void>;
-  sync?(): Promise<SyncResult>;
-}
-```
+Each resource type is implemented as a **plugin** with three lifecycle methods: `extract()`, `transform()`, and `load()`. Plugins optionally implement `sync()` for full pipeline execution.
 
 ### Built-in Plugins
 
@@ -143,42 +131,9 @@ The MCP server exposes resources via:
 
 ## Usage
 
-### Sync All Resources
+The pipeline runs automatically during setup to populate the database with all resources. Use `npm run setup` to sync all resources (agents, workflows, rules, projects, tool configs).
 
-```bash
-# Run setup script (includes resource sync)
-npm run setup
-
-# Or sync programmatically
-import { ResourceManager } from '@/src';
-
-const manager = await ResourceManager.init({ database, basePath });
-const results = await manager.syncAll();
-```
-
-### Sync Specific Plugin
-
-```typescript
-// Sync only content resources
-const result = await manager.sync('content');
-
-console.log(`Added: ${result.added}`);
-console.log(`Updated: ${result.updated}`);
-console.log(`Errors: ${result.errors}`);
-```
-
-### Query Resources
-
-```typescript
-// Query workflows by tags
-const workflows = await manager.query('workflow', {
-  tags: ['security'],
-  limit: 10,
-});
-
-// Get single agent
-const agent = await manager.get('agent', 'architect');
-```
+Programmatic access is available via the `ResourceManager` API for custom sync operations, queries, and resource retrieval.
 
 ## Database Schema
 
@@ -275,7 +230,6 @@ For complete implementation documentation, see:
 ## Future Enhancements
 
 - **Watch mode**: Auto-sync on filesystem changes
-- **Remote sources**: Fetch resources from Git repositories
 - **Version control**: Track resource changes over time
 - **Resource templates**: Generate new resources from templates
 - **Dependency graph**: Model relationships between resources
