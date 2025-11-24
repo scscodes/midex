@@ -119,14 +119,14 @@ export default function WorkflowDetailPage({ params }: { params: Promise<{ name:
                       <span className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs font-bold">
                         {idx + 1}
                       </span>
-                      <span className="font-medium">{phase.name}</span>
+                      <span className="font-medium">{(phase as { phase?: string; name?: string }).name ?? phase.phase}</span>
                       <span className="text-xs text-gray-400 bg-gray-800 px-2 py-0.5 rounded">
                         {phase.agent}
                       </span>
                     </div>
-                    {phase.steps && phase.steps.length > 0 && (
+                    {((phase as { steps?: string[] }).steps ?? []).length > 0 && (
                       <ul className="text-sm text-gray-400 ml-9 space-y-1">
-                        {phase.steps.map((step: string, stepIdx: number) => (
+                        {((phase as { steps?: string[] }).steps ?? []).map((step: string, stepIdx: number) => (
                           <li key={stepIdx}>• {step}</li>
                         ))}
                       </ul>

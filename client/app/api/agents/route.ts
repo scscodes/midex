@@ -15,10 +15,19 @@ export async function GET() {
     const agents = getAgents();
 
     // Parse JSON tags field
-    const parsed = agents.map((a) => ({
-      ...a,
-      tags: a.tags ? JSON.parse(a.tags) : [],
-    }));
+    const parsed = agents.map((a) => {
+      let tags: string[] = [];
+      if (Array.isArray(a.tags)) {
+        tags = a.tags;
+      } else if (typeof a.tags === 'string' && a.tags.trim().length > 0) {
+        tags = JSON.parse(a.tags);
+      }
+
+      return {
+        ...a,
+        tags,
+      };
+    });
 
     // Validate data structure
     const validated = validateArray(ParsedAgentSchema, parsed, 'agents');

@@ -17,11 +17,27 @@ export async function GET() {
     const workflows = getWorkflows();
 
     // Parse JSON fields
-    const parsed = workflows.map((w) => ({
-      ...w,
-      tags: w.tags ? JSON.parse(w.tags) : [],
-      phases: w.phases ? JSON.parse(w.phases) : [],
-    }));
+    const parsed = workflows.map((w) => {
+      let tags: string[] = [];
+      if (Array.isArray(w.tags)) {
+        tags = w.tags;
+      } else if (typeof w.tags === 'string' && w.tags.trim().length > 0) {
+        tags = JSON.parse(w.tags);
+      }
+
+      let phases: z.infer<typeof ParsedPhaseSchema>[] = [];
+      if (Array.isArray(w.phases)) {
+        phases = w.phases as z.infer<typeof ParsedPhaseSchema>[];
+      } else if (typeof w.phases === 'string' && w.phases.trim().length > 0) {
+        phases = JSON.parse(w.phases);
+      }
+
+      return {
+        ...w,
+        tags,
+        phases,
+      };
+    });
 
     // Validate all workflows have correct structure
     const validated = validateArray(ParsedWorkflowSchema, parsed, 'workflows');
