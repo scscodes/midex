@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { EventList } from '@/components/EventList';
-import type { ExecutionRow, ExecutionStepRow, TelemetryEventRow } from '@/lib/types';
+import type { ExecutionRow, ExecutionStepRow, TelemetryEventRow, WorkflowArtifactRow } from '@/lib/types';
 import { formatDurationMs, safeParseJSON } from '@/lib/utils';
 
 interface ExecutionDetail {
   execution: ExecutionRow;
   steps: ExecutionStepRow[];
+  artifacts: WorkflowArtifactRow[];
   events: TelemetryEventRow[];
 }
 
@@ -51,7 +52,7 @@ export default function ExecutionDetailPage() {
     return <div className="text-red-400">Execution not found</div>;
   }
 
-  const { execution, steps, events } = data;
+  const { execution, steps, artifacts = [], events } = data;
 
   return (
     <div className="space-y-6">
@@ -116,6 +117,33 @@ export default function ExecutionDetailPage() {
           ))}
           {steps.length === 0 && (
             <p className="text-zinc-500 text-center py-4">No steps recorded</p>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Artifacts</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {artifacts.map((artifact) => (
+            <Link
+              key={artifact.id}
+              href={`/artifacts?id=${artifact.id}`}
+              className="bg-zinc-900 border border-zinc-800 rounded p-3 block hover:border-blue-500 transition-colors group"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm group-hover:text-blue-400 transition-colors">{artifact.name}</span>
+                  <span className="badge badge-idle text-xs">{artifact.artifact_type}</span>
+                </div>
+                <span className="text-zinc-500 text-xs">{artifact.step_name}</span>
+              </div>
+              <div className="text-xs text-zinc-400 bg-zinc-950 rounded p-2 overflow-x-auto max-h-32 pointer-events-none">
+                <pre>{artifact.content.slice(0, 300)}{artifact.content.length > 300 ? '...' : ''}</pre>
+              </div>
+            </Link>
+          ))}
+          {artifacts.length === 0 && (
+            <p className="text-zinc-500 text-center py-4 col-span-full">No artifacts produced</p>
           )}
         </div>
       </div>

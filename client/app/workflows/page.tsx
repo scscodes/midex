@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { parsePhases, parseTags, getComplexityColor } from '@/lib/utils';
+import { parsePhases, parseTags, getComplexityColor, getComplexityLabel } from '@/lib/utils';
 import type { WorkflowRow, ParsedPhase } from '@/lib/types';
 
 export default function WorkflowsPage() {
@@ -56,7 +56,7 @@ export default function WorkflowsPage() {
                           <p className="text-gray-400 text-sm mt-1">{workflow.description}</p>
                         </div>
                         <span className={`px-2 py-1 rounded text-xs font-medium ${getComplexityColor(workflow.complexity)}`}>
-                          {workflow.complexity || 'unknown'}
+                          {getComplexityLabel(workflow.complexity)}
                         </span>
                       </div>
                       <div className="mt-3 flex items-center gap-4 text-sm text-gray-500">
@@ -88,19 +88,15 @@ export default function WorkflowsPage() {
                     {parsePhases(selected.phases).map((phase, idx) => (
                       <div key={idx} className="bg-gray-800 rounded p-3">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-sm">{phase.name}</span>
+                          <span className="font-medium text-sm">{phase.phase}</span>
                           <span className="text-xs text-blue-400">{phase.agent}</span>
                         </div>
-                        <ul className="text-xs text-gray-400 space-y-1">
-                          {phase.steps?.map((step, stepIdx) => (
-                            <li key={stepIdx} className="flex items-center gap-2">
-                              <span className="w-4 h-4 flex items-center justify-center bg-gray-700 rounded text-[10px]">
-                                {stepIdx + 1}
-                              </span>
-                              {step}
-                            </li>
-                          ))}
-                        </ul>
+                        <p className="text-xs text-gray-400 mt-2">{phase.description}</p>
+                        {phase.dependsOn && phase.dependsOn.length > 0 && (
+                          <div className="mt-2 text-xs text-gray-500">
+                            Depends on: {phase.dependsOn.join(', ')}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

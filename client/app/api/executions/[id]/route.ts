@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getExecution, getExecutionSteps, getTelemetryEvents } from '@/lib/db';
+import { getExecution, getExecutionSteps, getTelemetryEvents, getWorkflowArtifacts } from '@/lib/db';
 
 // Cache for 20 seconds - specific execution details
 export const revalidate = 20;
@@ -14,9 +14,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const steps = getExecutionSteps(id);
+    const artifacts = getWorkflowArtifacts(id);
     const events = getTelemetryEvents({ executionId: id, limit: 100 });
 
-    return NextResponse.json({ execution, steps, events });
+    return NextResponse.json({ execution, steps, artifacts, events });
   } catch (error) {
     console.error('Failed to fetch execution details:', error);
     return NextResponse.json(

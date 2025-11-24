@@ -9,12 +9,16 @@ export function safeParseJSON<T>(json: string | null | undefined, fallback: T): 
   }
 }
 
-export function parsePhases(phasesJson: string | null | undefined): ParsedPhase[] {
-  return safeParseJSON<ParsedPhase[]>(phasesJson, []);
+export function parsePhases(phasesData: string | ParsedPhase[] | null | undefined): ParsedPhase[] {
+  if (!phasesData) return [];
+  if (Array.isArray(phasesData)) return phasesData; // Already parsed
+  return safeParseJSON<ParsedPhase[]>(phasesData, []);
 }
 
-export function parseTags(tagsJson: string | null | undefined): string[] {
-  return safeParseJSON<string[]>(tagsJson, []);
+export function parseTags(tagsData: string | string[] | null | undefined): string[] {
+  if (!tagsData) return [];
+  if (Array.isArray(tagsData)) return tagsData; // Already parsed
+  return safeParseJSON<string[]>(tagsData, []);
 }
 
 export function formatDuration(seconds: number): string {
@@ -43,11 +47,21 @@ export function formatRelativeTime(dateStr: string): string {
 
 export function getComplexityColor(complexity: string | null | undefined): string {
   switch (complexity?.toLowerCase()) {
-    case 'low': return 'bg-green-500/20 text-green-400';
-    case 'moderate': return 'bg-yellow-500/20 text-yellow-400';
-    case 'high': return 'bg-red-500/20 text-red-400';
-    default: return 'bg-gray-500/20 text-gray-400';
+    case 'simple':
+    case 'low':
+      return 'bg-green-500/20 text-green-400';
+    case 'moderate':
+      return 'bg-yellow-500/20 text-yellow-400';
+    case 'high':
+      return 'bg-red-500/20 text-red-400';
+    default:
+      return 'bg-gray-500/20 text-gray-400';
   }
+}
+
+export function getComplexityLabel(complexity: string | null | undefined): string {
+  if (!complexity) return 'not set';
+  return complexity.toLowerCase();
 }
 
 export function getStateColor(state: string): string {

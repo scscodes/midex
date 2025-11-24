@@ -1,18 +1,19 @@
 import Database from 'better-sqlite3';
-import path from 'path';
 import fs from 'fs';
 import type {
   TelemetryEventRow,
   ExecutionRow,
   ExecutionStepRow,
   WorkflowRow,
+  AgentRow,
   Stats,
   WorkflowStats,
+  WorkflowArtifactRow,
 } from './types';
+import { getDatabasePath } from './db-config';
 
-// Use MIDE_DB_PATH to match server, fallback to shared/database/app.db
-// Note: process.cwd() returns workspace root (/home/user/midex) during Next.js dev
-const DB_PATH = process.env.MIDE_DB_PATH || path.join(process.cwd(), 'shared', 'database', 'app.db');
+// Use unified database path resolution (mirrors server/shared/config.ts)
+const DB_PATH = getDatabasePath();
 
 let dbInstance: Database.Database | null = null;
 let lastHealthCheck = 0;
@@ -142,6 +143,24 @@ export function getExecutionSteps(executionId: string): ExecutionStepRow[] {
     .all(executionId) as ExecutionStepRow[];
 }
 
+export function getWorkflowArtifacts(executionId: string): WorkflowArtifactRow[] {
+  return getDb()
+    .prepare('SELECT * FROM workflow_artifacts_v2 WHERE execution_id = ? ORDER BY created_at ASC')
+    .all(executionId) as WorkflowArtifactRow[];
+}
+
+export function getAllArtifacts(limit: number = 100): (WorkflowArtifactRow & { workflow_name: string })[] {
+  return getDb()
+    .prepare(`
+      SELECT wa.*, we.workflow_name
+      FROM workflow_artifacts_v2 wa
+      JOIN workflow_executions_v2 we ON wa.execution_id = we.execution_id
+      ORDER BY wa.created_at DESC
+      LIMIT ?
+    `)
+    .all(limit) as (WorkflowArtifactRow & { workflow_name: string })[];
+}
+
 export function getWorkflows(): WorkflowRow[] {
   return getDb()
     .prepare('SELECT name, description, tags, complexity, phases FROM workflows ORDER BY name ASC')
@@ -152,6 +171,18 @@ export function getWorkflow(name: string): WorkflowRow | undefined {
   return getDb()
     .prepare('SELECT * FROM workflows WHERE name = ?')
     .get(name) as WorkflowRow | undefined;
+}
+
+export function getAgents(): AgentRow[] {
+  return getDb()
+    .prepare('SELECT name, description, tags, version FROM agents ORDER BY name ASC')
+    .all() as AgentRow[];
+}
+
+export function getAgent(name: string): AgentRow | undefined {
+  return getDb()
+    .prepare('SELECT * FROM agents WHERE name = ?')
+    .get(name) as AgentRow | undefined;
 }
 
 export function getWorkflowStats(workflowName: string): WorkflowStats {
