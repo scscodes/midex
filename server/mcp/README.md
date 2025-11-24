@@ -1,5 +1,7 @@
 # MCP - Workflow Orchestration Server
 
+> **Note**: For high-level workflow orchestration concepts, see [MCP Workflow Orchestration](../../docs/MCP_WORKFLOW_ORCHESTRATION.md). This document focuses on implementation details.
+
 **Resources-first architecture for step-by-step workflow execution with LLM agents**
 
 ## Overview
@@ -551,6 +553,24 @@ READ midex://workflow/workflow_status/exec_123
   "steps": { "total": 3, "completed": 3 }
 }
 ```
+
+## Validation Strategy
+
+All inputs and outputs are validated with Zod schemas at system boundaries:
+
+- **Zod at boundaries**: All tool inputs and resource outputs validated
+- **Row schemas**: `lib/schemas.ts` validates database rows with `safeParseRow()`
+- **Domain schemas**: `types/index.ts` for domain type definitions
+- **Safe parsing**: Returns null instead of throwing, enabling graceful error handling
+
+## Error Handling
+
+Consistent error responses and comprehensive logging:
+
+- **`buildToolError(msg)`** - Standardized tool error responses
+- **`buildResourceError(uri, msg)`** - Standardized resource error responses
+- **`TelemetryService`** - Logs all workflow/step/token events for observability
+- **Step validation**: Enforces state machine rules (e.g., step must be 'running' to complete)
 
 ## Implementation Details
 

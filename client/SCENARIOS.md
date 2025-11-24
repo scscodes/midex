@@ -1,9 +1,16 @@
 # Midex Client Scenarios & Use Cases
 
+> **Note**: This document focuses on client-side use cases and implementation tracking. For technical implementation details, see the `client/` directory.
+
 This document defines all scenarios the web client will address. Use it for:
 - Implementation tracking (checkbox status)
 - Marketing/showcase material
 - Stakeholder communication
+
+## Related Documentation
+
+- **[MCP Workflow Orchestration](./MCP_WORKFLOW_ORCHESTRATION.md)** - Backend workflow system that powers the client
+- **[MCP Architecture](./mcp-architecture.md)** - Technical architecture of the MCP server
 
 ---
 
@@ -404,38 +411,6 @@ Workflow: security-threat-assessment
 - [ ] ROI summary report (Scenario 13)
 - [ ] Export functionality
 - [ ] Shareable dashboards
-
----
-
-## Marketing Value Props
-
-**For Individual Developers:**
-> "Stop wasting hours on config setup. midex syncs your tools once, everywhere."
-
-**For Team Leads:**
-> "One config, every project, every dev. No more drift, no more 'works on my machine.'"
-
-**For Engineering Managers:**
-> "Cut onboarding time by 90%. See compliance instantly. Zero secrets in git."
-
-**For Security Teams:**
-> "Credentials never touch source control. Full audit trail. Instant rotation."
-
-**For Executives:**
-> "400+ hours saved annually. $400K+ value. Zero infrastructure cost."
-
----
-
-## Technical Stack
-
-| Component | Choice | Rationale |
-|-----------|--------|-----------|
-| Framework | Next.js 15 (App Router) | Already in project |
-| Data Fetching | API routes + SWR | Simple, caching |
-| Database | better-sqlite3 (read-only) | Fast, already available |
-| Styling | Tailwind CSS | Rapid development |
-| Charts | Recharts | Lightweight, React-native |
-| State | React hooks + SWR | No Redux needed |
 
 ---
 
