@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+// Artifact Types (Hoisted)
+export const ArtifactTypeSchema = z.enum(['file', 'data', 'report', 'finding']);
+export type ArtifactType = z.infer<typeof ArtifactTypeSchema>;
+
 // Workflow States
 export const WorkflowStateSchema = z.enum([
   'idle',
@@ -56,17 +60,26 @@ export const WorkflowStepSchema = z.object({
 });
 export type WorkflowStep = z.infer<typeof WorkflowStepSchema>;
 
+export const StepArtifactSchema = z.object({
+  type: ArtifactTypeSchema,
+  title: z.string().min(1).optional().describe('Alias for name'),
+  name: z.string().min(1).optional(),
+  content: z.string(),
+  content_type: z.string().optional().default('text/plain'),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+}).refine(data => data.name || data.title, {
+  message: "Either 'name' or 'title' must be provided",
+  path: ["name"]
+});
+export type StepArtifact = z.infer<typeof StepArtifactSchema>;
+
 export const StepOutputSchema = z.object({
   summary: z.string(),
-  artifacts: z.array(z.string()).optional(),
+  artifacts: z.array(StepArtifactSchema).optional(),
   findings: z.array(z.string()).optional(),
   next_step_recommendation: z.string().optional(),
 });
 export type StepOutput = z.infer<typeof StepOutputSchema>;
-
-// Artifacts
-export const ArtifactTypeSchema = z.enum(['file', 'data', 'report', 'finding']);
-export type ArtifactType = z.infer<typeof ArtifactTypeSchema>;
 
 export const WorkflowArtifactSchema = z.object({
   id: z.number().int(),

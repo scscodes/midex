@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "mide://contracts/agent/AgentOutput.schema.json",
+  "$id": "midex://contracts/agent/AgentOutput.schema.json",
   "title": "AgentOutput",
   "type": "object",
   "additionalProperties": false,
@@ -14,11 +14,13 @@
         "properties": {
           "type": { "type": "string" },
           "title": { "type": "string" },
+          "name": { "type": "string" },
           "content": { "type": "string" },
+          "content_type": { "type": "string", "default": "text/plain" },
           "description": { "type": "string" },
           "metadata": { "type": "object" }
         },
-        "required": ["type", "title", "content"]
+        "required": ["type", "content"]
       }
     },
     "decisions": {
@@ -57,4 +59,3 @@
   },
   "required": ["summary", "artifacts", "references", "confidence"]
 }
-

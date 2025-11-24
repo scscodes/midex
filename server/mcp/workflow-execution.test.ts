@@ -256,7 +256,13 @@ describe('Workflow Execution Integration', () => {
         token,
         {
           summary: 'Implementation completed',
-          artifacts: ['artifact_1'],
+          artifacts: [
+            {
+              type: 'file',
+              name: 'artifact_1',
+              content: 'test content',
+            },
+          ],
         },
         testPhases
       );

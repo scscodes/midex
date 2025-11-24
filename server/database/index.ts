@@ -2,6 +2,10 @@ import Database from 'better-sqlite3';
 import type { Database as DB, Statement } from 'better-sqlite3';
 import { getDatabasePath } from '../shared/config.js';
 
+const MODULE_URL = import.meta.url;
+const isTsRuntime = MODULE_URL.endsWith('.ts');
+const migrationModuleExt = isTsRuntime ? '.ts' : '.js';
+
 export interface DatabaseOptions {
   path?: string; // default: './shared/database/app.db'
   readonly?: boolean;
@@ -279,8 +283,8 @@ export class AppDatabase {
    */
   private async applyMigrations(): Promise<void> {
     // Dynamic import for ESM compatibility
-    const { MigrationRunner } = await import('./migrations/runner.js');
-    const { discoverMigrations } = await import('./migrations/discovery.js');
+    const { MigrationRunner } = await import(`./migrations/runner${migrationModuleExt}`);
+    const { discoverMigrations } = await import(`./migrations/discovery${migrationModuleExt}`);
 
     const runner = new MigrationRunner(this.db);
     const migrations = await discoverMigrations();

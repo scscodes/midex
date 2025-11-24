@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "mide://contracts/workflow/StepOutput.schema.json",
+  "$id": "midex://contracts/workflow/StepOutput.schema.json",
   "title": "StepOutput",
   "type": "object",
   "additionalProperties": false,
@@ -14,10 +14,13 @@
         "properties": {
           "type": { "type": "string" },
           "title": { "type": "string" },
+          "name": { "type": "string" },
           "content": { "type": "string" },
-          "description": { "type": "string" }
+          "content_type": { "type": "string", "default": "text/plain" },
+          "description": { "type": "string" },
+          "metadata": { "type": "object" }
         },
-        "required": ["type", "title", "content"]
+        "required": ["type", "content"]
       }
     },
     "findings": {
@@ -41,4 +44,3 @@
   },
   "required": ["summary", "artifacts", "references", "confidence"]
 }
-

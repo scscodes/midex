@@ -6,6 +6,8 @@ import type { Migration } from './types.js';
 // ESM equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const isTsRuntime = __filename.endsWith('.ts');
+const migrationExtension = isTsRuntime ? '.ts' : '.js';
 
 /**
  * Auto-discover migration files in the migrations directory
@@ -22,8 +24,8 @@ export async function discoverMigrations(): Promise<Migration[]> {
 
   const migrationFiles = files
     .filter((file) => {
-      // Match pattern: NNN_name.js (only .js files, not .d.ts)
-      return /^\d{3}_.*\.js$/.test(file) && !file.endsWith('.d.ts');
+      const pattern = new RegExp(`^\\d{3}_.*\\${migrationExtension}$`);
+      return pattern.test(file);
     })
     .sort(); // Lexicographic sort works because of 3-digit padding
 

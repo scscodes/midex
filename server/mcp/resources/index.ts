@@ -159,16 +159,17 @@ export class ResourceHandlers {
       .map((row) => {
         const artifact = safeParseRow(WorkflowArtifactRowSchema, row);
         if (!artifact) return null;
-        return {
-          id: artifact.id,
-          step_name: artifact.step_name,
-          artifact_type: artifact.artifact_type,
-          name: artifact.name,
-          content_type: artifact.content_type,
-          size_bytes: artifact.size_bytes,
-          metadata: safeJsonParse(artifact.metadata, null),
-          created_at: artifact.created_at,
-        };
+          return {
+            id: artifact.id,
+            step_name: artifact.step_name,
+            artifact_type: artifact.artifact_type,
+            name: artifact.name,
+            title: artifact.name,
+            content_type: artifact.content_type,
+            size_bytes: artifact.size_bytes,
+            metadata: safeJsonParse(artifact.metadata, null),
+            created_at: artifact.created_at,
+          };
       })
       .filter((a) => a !== null);
     return buildResourceSuccess(uri, artifacts);

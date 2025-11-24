@@ -114,7 +114,30 @@ export class StepExecutor {
         .run('completed', now, durationMs, JSON.stringify(output), execution_id, tokenStepName);
 
       this.telemetry.stepCompleted(execution_id, tokenStepName, step.agent_name, durationMs);
-      output.artifacts?.forEach((id) => this.telemetry.artifactStored(execution_id, tokenStepName, id));
+
+      if (output.artifacts) {
+        for (const artifact of output.artifacts) {
+          const artifactId = this.db
+            .prepare(
+              `INSERT INTO workflow_artifacts_v2 (
+              execution_id, step_name, artifact_type, name, content, content_type, size_bytes, metadata
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING id`
+            )
+            .get(
+              execution_id,
+              tokenStepName,
+              artifact.type,
+              artifact.name || artifact.title || 'untitled',
+              artifact.content,
+              artifact.content_type || 'text/plain',
+              Buffer.byteLength(artifact.content, 'utf8'),
+              artifact.metadata ? JSON.stringify(artifact.metadata) : null
+            ) as { id: number };
+
+          this.telemetry.artifactStored(execution_id, tokenStepName, String(artifactId.id));
+        }
+      }
 
       const currentIndex = phases.findIndex((p) => p.phase === tokenStepName);
       const nextPhase = currentIndex !== -1 && currentIndex < phases.length - 1 ? phases[currentIndex + 1] : null;

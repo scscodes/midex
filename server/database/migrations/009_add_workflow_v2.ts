@@ -4,15 +4,15 @@ import type { Migration } from './types.js';
  * Add workflow v2 tables for MCP-based workflow orchestration
  *
  * This migration adds the core tables for the v2 workflow system:
- * - workflow_executions: Primary state table for workflow execution tracking
- * - workflow_steps: Step-level tracking with tokens and outputs
- * - workflow_artifacts: Stores workflow outputs and intermediate results
- * - telemetry_events: Comprehensive metrics and monitoring
+ * - workflow_executions_v2: Primary state table for workflow execution tracking
+ * - workflow_steps_v2: Step-level tracking with tokens and outputs
+ * - workflow_artifacts_v2: Stores workflow outputs and intermediate results
+ * - telemetry_events_v2: Comprehensive metrics and monitoring
  *
  * All operations flow through the database (no in-memory state).
  */
 const migration: Migration = {
-  version: 3,
+  version: 9,
   name: 'add_workflow_v2',
   destructive: false,
 
