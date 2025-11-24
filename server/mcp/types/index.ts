@@ -4,6 +4,75 @@ import { z } from 'zod';
 export const ArtifactTypeSchema = z.enum(['file', 'data', 'report', 'finding']);
 export type ArtifactType = z.infer<typeof ArtifactTypeSchema>;
 
+// Knowledge Base Types
+export const KnowledgeScopeSchema = z.enum(['global', 'project', 'system']);
+export type KnowledgeScope = z.infer<typeof KnowledgeScopeSchema>;
+
+export const KnowledgeCategorySchema = z.enum(['security', 'architecture', 'performance', 'constraint', 'pattern']);
+export type KnowledgeCategory = z.infer<typeof KnowledgeCategorySchema>;
+
+export const KnowledgeSeveritySchema = z.enum(['info', 'low', 'medium', 'high', 'critical']);
+export type KnowledgeSeverity = z.infer<typeof KnowledgeSeveritySchema>;
+
+export const KnowledgeStatusSchema = z.enum(['active', 'deprecated']);
+export type KnowledgeStatus = z.infer<typeof KnowledgeStatusSchema>;
+
+export const KnowledgeFindingSchema = z.object({
+  id: z.number().int(),
+  scope: KnowledgeScopeSchema,
+  project_id: z.number().int().nullable(),
+  category: KnowledgeCategorySchema,
+  severity: KnowledgeSeveritySchema,
+  status: KnowledgeStatusSchema,
+  title: z.string(),
+  content: z.string(),
+  tags: z.array(z.string()).optional().default([]),
+  source_execution_id: z.string().nullable(),
+  source_agent: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+export type KnowledgeFinding = z.infer<typeof KnowledgeFindingSchema>;
+
+export const KnowledgeFindingInputSchema = z
+  .object({
+    scope: KnowledgeScopeSchema,
+    project_id: z.number().int().positive().optional(),
+    category: KnowledgeCategorySchema,
+    severity: KnowledgeSeveritySchema,
+    title: z.string().min(1),
+    content: z.string().min(1),
+    tags: z.array(z.string()).optional(),
+    source_execution_id: z.string().min(1).optional(),
+    source_agent: z.string().min(1).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.scope === 'project' && !data.project_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'project_id is required when scope is project',
+        path: ['project_id'],
+      });
+    }
+  });
+export type KnowledgeFindingInput = z.infer<typeof KnowledgeFindingInputSchema>;
+
+export const KnowledgeFindingUpdateSchema = z
+  .object({
+    id: z.number().int().positive(),
+    title: z.string().min(1).optional(),
+    content: z.string().min(1).optional(),
+    tags: z.array(z.string()).optional(),
+    severity: KnowledgeSeveritySchema.optional(),
+    category: KnowledgeCategorySchema.optional(),
+    status: KnowledgeStatusSchema.optional(),
+  })
+  .refine((data) => {
+    const { title, content, tags, severity, category, status } = data;
+    return Boolean(title || content || tags || severity || category || status);
+  }, 'At least one field besides id must be provided');
+export type KnowledgeFindingUpdate = z.infer<typeof KnowledgeFindingUpdateSchema>;
+
 // Workflow States
 export const WorkflowStateSchema = z.enum([
   'idle',
@@ -78,6 +147,13 @@ export const StepOutputSchema = z.object({
   artifacts: z.array(StepArtifactSchema).optional(),
   findings: z.array(z.string()).optional(),
   next_step_recommendation: z.string().optional(),
+  suggested_findings: z
+    .array(
+      KnowledgeFindingInputSchema.omit({ source_execution_id: true, source_agent: true }).extend({
+        metadata: z.record(z.string(), z.unknown()).optional(),
+      })
+    )
+    .optional(),
 });
 export type StepOutput = z.infer<typeof StepOutputSchema>;
 

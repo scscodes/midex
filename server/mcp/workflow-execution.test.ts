@@ -373,5 +373,44 @@ describe('Workflow Execution Integration', () => {
       expect(stepsAfter[0].status).toBe('completed');
       expect(stepsAfter[1].status).toBe('running'); // Next step starts in 'running' state
     });
+
+    it('should persist suggested findings in step output', () => {
+      const phases: WorkflowPhase[] = [
+        { phase: 'discover', agent: 'architect', description: 'Discovery' },
+        { phase: 'implement', agent: 'implementer', description: 'Implementation' },
+      ];
+
+      const startResult = stepExecutor.startWorkflow('kb-workflow', 'exec_sf', phases);
+      const token = startResult.new_token!;
+
+      const suggested = [
+        {
+          scope: 'global',
+          category: 'architecture',
+          severity: 'medium',
+          title: 'Document RBAC edge cases',
+          content: 'Capture delete/update permission nuances in shared KB.',
+          tags: ['rbac', 'permissions'],
+        },
+      ];
+
+      const result = stepExecutor.continueWorkflow(
+        token,
+        { summary: 'Discovery complete', suggested_findings: suggested },
+        phases
+      );
+
+      expect(result.success).toBe(true);
+
+      const steps = stepExecutor.getSteps('exec_sf');
+      const stored = steps.find((s) => s.step_name === 'discover');
+      expect(stored?.output).toBeTruthy();
+
+      const storedOutput = stored?.output as Record<string, unknown>;
+      const storedSuggestions = storedOutput?.suggested_findings as Array<Record<string, unknown>>;
+      expect(storedSuggestions).toBeTruthy();
+      expect(storedSuggestions?.[0]?.title).toBe('Document RBAC edge cases');
+      expect(storedSuggestions?.[0]?.scope).toBe('global');
+    });
   });
 });

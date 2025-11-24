@@ -11,16 +11,15 @@ import {
   AgentRowSchema,
   safeParseRow,
 } from '../lib/index.js';
-
-export interface ResourceContent {
-  uri: string;
-  mimeType: string;
-  text?: string;
-  isError?: boolean;
-}
+import { KnowledgeResourceHandlers } from './knowledge.js';
+import type { ResourceContent } from './types.js';
 
 export class ResourceHandlers {
-  constructor(private db: Database) {}
+  private knowledge: KnowledgeResourceHandlers;
+
+  constructor(private db: Database) {
+    this.knowledge = new KnowledgeResourceHandlers(db);
+  }
 
   async getAvailableWorkflows(): Promise<ResourceContent> {
     const rows = this.db.prepare(`SELECT name, description, tags, complexity, phases FROM workflows ORDER BY name ASC`).all() as unknown[];
@@ -89,7 +88,8 @@ export class ResourceHandlers {
       progress: phases.length > 0 ? `${currentIndex + 1}/${phases.length}` : 'unknown',
       continuation_token: step.token,
       agent_content: agent.content,
-      instructions: '1. Read agent_content carefully\n2. Execute the tasks\n3. Call workflow.next_step with token and output\n\nIMPORTANT: Token is single-use.',
+      instructions:
+        '1. Read agent_content carefully\n2. Execute the tasks\n3. Call workflow.next_step with token and output\n   - Include summary, artifacts, findings, suggested_findings (optional), and next_step_recommendation as needed\n\nIMPORTANT: Token is single-use.',
     });
   }
 
@@ -212,5 +212,13 @@ export class ResourceHandlers {
       })
       .filter((e) => e !== null);
     return buildResourceSuccess(uri, events);
+  }
+
+  async getProjectKnowledge(projectId: number): Promise<ResourceContent> {
+    return this.knowledge.getProjectFindings(projectId);
+  }
+
+  async getGlobalKnowledge(): Promise<ResourceContent> {
+    return this.knowledge.getGlobalFindings();
   }
 }

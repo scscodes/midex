@@ -104,7 +104,7 @@ Get current step with agent persona and continuation token. **This is the main r
   "progress": "1/3",
   "continuation_token": "eyJ...",
   "agent_content": "# Architect Agent\n\nYou are a system architect...",
-  "instructions": "Read the agent_content above carefully.\nExecute the tasks described by the agent.\nWhen complete, call workflow.next_step tool with:\n  - token: the continuation_token from this resource\n  - output: { summary, artifacts, findings, next_step_recommendation }"
+  "instructions": "Read the agent_content above carefully.\nExecute the tasks described by the agent.\nWhen complete, call workflow.next_step tool with:\n  - token: the continuation_token from this resource\n  - output: { summary, artifacts, findings, suggested_findings, next_step_recommendation }"
 }
 ```
 
@@ -164,7 +164,18 @@ Get complete step history for an execution.
     "output": {
       "summary": "Architecture design completed",
       "artifacts": ["design_doc_001"],
-      "findings": []
+      "findings": [],
+      "suggested_findings": [
+        {
+          "scope": "project",
+          "project_id": 12,
+          "category": "architecture",
+          "severity": "medium",
+          "title": "Document API versioning",
+          "content": "Baseline architecture requires explicit version headers.",
+          "tags": ["api", "versioning"]
+        }
+      ]
     }
   },
   {

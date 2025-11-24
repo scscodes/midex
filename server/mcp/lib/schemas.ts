@@ -1,4 +1,11 @@
 import { z } from 'zod';
+import {
+  KnowledgeCategorySchema,
+  KnowledgeFindingSchema,
+  KnowledgeScopeSchema,
+  KnowledgeSeveritySchema,
+  KnowledgeStatusSchema,
+} from '../types/index.js';
 import { safeJsonParse } from './utils.js';
 
 // Database Row Schemas (raw SQLite output)
@@ -72,6 +79,23 @@ export const AgentRowSchema = z.object({
 });
 export type AgentRow = z.infer<typeof AgentRowSchema>;
 
+export const KnowledgeFindingRowSchema = z.object({
+  id: z.number().int(),
+  scope: KnowledgeScopeSchema,
+  project_id: z.number().int().nullable(),
+  category: KnowledgeCategorySchema,
+  severity: KnowledgeSeveritySchema,
+  status: KnowledgeStatusSchema,
+  title: z.string(),
+  content: z.string(),
+  tags: z.string().nullable(),
+  source_execution_id: z.string().nullable(),
+  source_agent: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+export type KnowledgeFindingRow = z.infer<typeof KnowledgeFindingRowSchema>;
+
 // Tool Input Schemas
 
 export const StartWorkflowArgsSchema = z.object({
@@ -127,6 +151,14 @@ export function transformWorkflowRow(row: unknown): {
     complexity: parsed.complexity,
     phases: safeJsonParse(parsed.phases, []),
   };
+}
+
+export function transformKnowledgeFindingRow(row: unknown) {
+  const parsed = KnowledgeFindingRowSchema.parse(row);
+  return KnowledgeFindingSchema.parse({
+    ...parsed,
+    tags: safeJsonParse(parsed.tags, []),
+  });
 }
 
 export function safeParseRow<T extends z.ZodType>(schema: T, row: unknown): z.infer<T> | null {

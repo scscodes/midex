@@ -2,6 +2,7 @@ import type { Database } from 'better-sqlite3';
 import type { NextStepResult, WorkflowPhase, WorkflowState } from '../types/index.js';
 import { NextStepArgsSchema } from '../types/index.js';
 import { StepExecutor } from '../core/step-executor.js';
+import { KnowledgeToolService } from './knowledge.js';
 import { safeJsonParse, decodeTokenPayload, buildToolError, buildToolSuccess, AgentRowSchema, safeParseRow } from '../lib/index.js';
 
 export interface ToolResult {
@@ -12,9 +13,11 @@ export interface ToolResult {
 
 export class ToolHandlers {
   private stepExecutor: StepExecutor;
+  private knowledgeTools: KnowledgeToolService;
 
   constructor(private db: Database) {
     this.stepExecutor = new StepExecutor(db);
+    this.knowledgeTools = new KnowledgeToolService(db);
   }
 
   async nextStep(args: unknown): Promise<ToolResult> {
@@ -96,5 +99,13 @@ export class ToolHandlers {
       message: `Workflow '${workflowName}' started. Step '${result.step_name}' ready.`,
       instructions: '1. Read agent_content carefully\n2. Execute the tasks described\n3. Call workflow.next_step with token and output',
     });
+  }
+
+  async addKnowledgeFinding(args: unknown): Promise<ToolResult> {
+    return this.knowledgeTools.addFinding(args);
+  }
+
+  async updateKnowledgeFinding(args: unknown): Promise<ToolResult> {
+    return this.knowledgeTools.updateFinding(args);
   }
 }
