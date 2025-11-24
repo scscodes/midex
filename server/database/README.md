@@ -169,7 +169,7 @@ Avoid rebaselining when:
 
 Default paths (see `shared/config.ts`):
 - **Development**: `midex/shared/database/app.db`
-- Override with: `MIDE_DB_PATH` environment variable
+- Override with: `MIDEX_DB_PATH` environment variable
 
 ## Migration Runner Features
 

@@ -86,7 +86,7 @@ Artifacts → Capture Knowledge
 ```mermaid
 graph TD
     A[Start MCP Server] --> B[Detect Current Project]
-    B --> C[Initialize Database mide.db]
+    B --> C[Initialize Database midex.db]
     C --> D[Sync Content Directory]
     D --> D1[Sync Agents from content/agents/]
     D --> D2[Sync Rules from content/rules/]
@@ -564,7 +564,7 @@ sequenceDiagram
 
     Note over Client,FS: INITIALIZATION
     Client->>MCP: Connect (stdio transport)
-    MCP->>DB: Initialize mide.db
+    MCP->>DB: Initialize midex.db
     MCP->>FS: Sync content/ directory
     FS-->>MCP: Agents, Rules, Templates
     MCP->>DB: Store definitions
@@ -1707,7 +1707,7 @@ src/
 └── integrations/
     └── mcp/
         ├── index.ts                       # Entry point
-        ├── server.ts                      # MideServer class
+        ├── server.ts                      # MidexServer class
         ├── schemas/
         │   └── index.ts                   # Zod validation schemas
         ├── resources/
@@ -1747,13 +1747,13 @@ src/
 
 ```bash
 # Optional: Enable verbose logging
-MIDE_VERBOSE=true
+MIDEX_VERBOSE=true
 
-# Optional: Database path (default: ./mide.db)
-MIDE_DB_PATH=/custom/path/to/mide.db
+# Optional: Database path (default: ./midex.db)
+MIDEX_DB_PATH=/custom/path/to/midex.db
 
 # Optional: Content directory (default: ./content)
-MIDE_CONTENT_DIR=/custom/path/to/content
+MIDEX_CONTENT_DIR=/custom/path/to/content
 ```
 
 **CLI Flags**:
@@ -1763,7 +1763,7 @@ MIDE_CONTENT_DIR=/custom/path/to/content
 npm start -- --verbose
 
 # Initialize with custom options
-mide setup --verbose
+midex setup --verbose
 ```
 
 ---
@@ -1886,4 +1886,4 @@ The MCP-based Workflow Orchestration System provides a **robust, scalable, and s
 
 **Document Version**: 1.0.0
 **Last Updated**: 2025-11-20
-**Maintainer**: Mide Development Team
+**Maintainer**: Midex Development Team

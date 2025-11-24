@@ -57,10 +57,14 @@ npm run mcp:start
 
 ## Environment Variables
 
-- `MIDE_DB_PATH`: Database path (default: `./shared/database/app.db`)
-- `MIDE_CONTENT_PATH`: Content directory (default: `server/content`)
-- `MIDE_DISCOVERY_METHOD`: `autodiscover` (default) or `manual`
-- `MIDE_PROJECT_PATH`: Target path for manual project discovery
+- `MIDEX_DB_PATH`: Database path (default: `./shared/database/app.db`)
+- `MIDEX_CONTENT_PATH`: Content directory (default: `server/content`)
+- `MIDEX_DISCOVERY_METHOD`: `autodiscover` (default) or `manual`
+- `MIDEX_PROJECT_PATH`: Target path for manual project discovery
+
+### Helpful scripts
+
+- `npm run ensure:db` – creates the shared SQLite database (if needed) and runs all migrations. This now runs automatically before any dev/start command so both server and client can rely on up-to-date tables.
 
 ## Key Features
 
